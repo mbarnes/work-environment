@@ -1,0 +1,69 @@
+#!/usr/bin/ansible-playbook
+---
+#
+# Customize a shell environment for OpenShift operations work.
+#
+# Intended for Red Hat owned AWS EC2 instances serving as "bastion" hosts.
+#
+- hosts: all
+  vars:
+    virtualenv_root: "{{ ansible_user_dir }}/env"
+  tasks:
+
+  - name: Synchronize bin directory
+    synchronize:
+      src: bin
+      dest: "{{ ansible_user_dir }}"
+      links: yes
+
+  # Cached cluster information
+
+  - name: Create cluster cache directories
+    file:
+      path: "{{ ansible_user_dir }}/.cache/sre/clusters/{{ item }}"
+      state: directory
+    with_items:
+    - v3
+    - v4
+
+  - name: Copy bash completion
+    copy:
+      src: bash_completion
+      dest: "{{ ansible_user_dir }}/.bash_completion"
+
+  - name: Schedule daily cluster cache update
+    cron:
+      name: Daily cluster cache update
+      special_time: daily
+      user: "{{ ansible_user_id }}"
+      job: "{{ ansible_user_dir }}/bin/update-cluster-cache"
+
+  # Powerline
+
+  - name: Add virtualenv binaries to PATH
+    lineinfile:
+      path: "{{ ansible_user_dir }}/.bashrc"
+      line: "export PATH=\"$PATH:{{ virtualenv_root }}/bin\""
+      create: yes
+
+  - name: Install powerline-status pip package
+    pip:
+      name: powerline-status
+      virtualenv: "{{ virtualenv_root }}"
+
+  - name: Syncrhonize powerline configuration
+    synchronize:
+      src: config/powerline
+      dest: "{{ ansible_user_dir }}/.config"
+
+  - name: Source powerline when starting bash
+    lineinfile:
+      path: "{{ ansible_user_dir }}/.bashrc"
+      line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/bash/powerline.sh"
+      create: yes
+
+  - name: Source powerline when starting tmux
+    lineinfile:
+      path: "{{ ansible_user_dir }}/.tmux.conf"
+      line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/tmux/powerline.conf"
+      create: yes

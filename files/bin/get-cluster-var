@@ -1,0 +1,28 @@
+#!/bin/bash
+
+CLUSTER=$1
+VARNAME=$2
+if [[ -z $CLUSTER ]]
+then
+    echo "Usage: $0 <clusterid> [<varname>]" > /dev/stderr
+    exit 1
+fi
+
+V3_FILE="$HOME/.cache/sre/clusters/v3/$CLUSTER"
+V4_FILE="$HOME/.cache/sre/clusters/v4/$CLUSTER/details"
+if [[ -f $V3_FILE ]]
+then
+  if [[ -n $VARNAME ]]
+  then
+    cat $V3_FILE | jq ".$VARNAME" | tr -d '"'
+  fi
+elif [[ -f $V4_FILE ]]
+then
+  if [[ -n $VARNAME ]]
+  then
+    cat $V4_FILE | jq ".$VARNAME" | tr -d '"'
+  fi
+else
+  echo "Unknown cluster '$CLUSTER'" > /dev/stderr
+  exit 1
+fi

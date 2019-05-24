@@ -1,0 +1,14 @@
+#!/bin/bash
+
+CID=${1:-$CLUSTERID}
+if [[ -z $CID ]]
+then
+  echo "Usage: $0 <clusterid>" > /dev/stderr
+  exit 1
+fi
+
+echo "$CID ($(oo_account $CID) $(oo_accountid $CID) $(oo_location $CID)/$(oo_sublocation $CID))"
+ls --directory --color=never $HOME/git/openshift-ansible-ops/playbooks/site/$CID 2> /dev/null
+ls --directory --color=never $HOME/git/openshift-ansible-private/archived_files/$CID 2> /dev/null
+ls --directory --color=never $HOME/git/openshift-ansible-private/private_roles/stat_cert_files/files/$CID 2> /dev/null
+ls --directory --color=never $HOME/git/openshift-ansible-private/private_vars/global/$(oo_location $CID)/$(oo_account $CID)/$(oo_environment $CID)/$CID 2> /dev/null

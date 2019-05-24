@@ -1,0 +1,36 @@
+_list_clusters()
+{
+    _list_v3_clusters
+    _list_v4_clusters
+}
+
+_list_v3_clusters()
+{
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local names=$(ls $HOME/.cache/sre/clusters/v3/)
+    COMPREPLY+=( $(compgen -W "$names" -- $cur) )
+}
+
+_list_v4_clusters()
+{
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local names=$(ls $HOME/.cache/sre/clusters/v4/)
+    COMPREPLY+=( $(compgen -W "$names" -- $cur) )
+}
+
+_source_cluster()
+{
+    local prev
+    COMPREPLY=()
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    if [[ $prev == 'cluster' ]]
+    then
+        _list_clusters
+    else
+        _minimal
+    fi
+}
+
+complete -F _source_cluster source
+complete -F _list_v3_clusters lscluster

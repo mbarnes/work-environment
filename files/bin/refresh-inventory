@@ -1,0 +1,11 @@
+#!/bin/bash
+
+CID=${1:-$CLUSTERID}
+if [[ -z $CID ]]
+then
+  echo "Usage: $0 <clusterid>" > /dev/stderr
+  exit 1
+fi
+
+/usr/share/ansible/inventory/multi_inventory.py --refresh-cache --cluster $CID > /dev/null
+/usr/bin/ohi --cluster $CID

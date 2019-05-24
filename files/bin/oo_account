@@ -1,0 +1,10 @@
+#!/bin/bash
+
+CID=${1:-$CLUSTERID}
+if [[ -z $CID ]]
+then
+  echo "Usage: $0 <clusterid>" > /dev/stderr
+  exit 1
+fi
+
+get-cluster-var $CID $(basename $0)

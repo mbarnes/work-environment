@@ -1,0 +1,13 @@
+[bastion1]
+bastion-nasa-1.ops.openshift.com
+
+[bastion2]
+bastion-nasa-2.ops.openshift.com
+
+[tier1]
+bastion-useast2-1.ops.openshift.com
+bastion-useast2-2.ops.openshift.com
+bastion-euwest2-1.ops.openshift.com
+bastion-euwest2-2.ops.openshift.com
+bastion-apnortheast1-1.ops.openshift.com
+bastion-apnortheast1-2.ops.openshift.com

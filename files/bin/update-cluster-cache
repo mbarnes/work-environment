@@ -1,0 +1,64 @@
+#!/usr/bin/python
+#
+# This program runs the multi-inventory and caches cluster variables in
+# small cluster-specific JSON files so they can be accessed much faster
+# than the "ohi" utility currently can.  The "ohi" utility has to slurp
+# up and parse a massive JSON file on each invocation.
+#
+# The cached file names also serve as a word list for bash completion
+# when configuring a shell environment with "source cluster NAME".
+#
+# The intent is to run this via crontab, or manually as needed.
+#
+# See also: ~/bin/cluster
+#           ~/.bash_completion
+#           /var/spool/cron/$USER
+
+import errno
+import json
+import os
+import shutil
+import tempfile
+
+from openshift_tools.inventory_clients import multi_inventory
+
+CACHE_DIR = '~/.cache/sre/clusters'
+GROUP_PREFIX = 'synthetic_'
+
+def safe_mkdir(path, mode=0777):
+    try:
+        os.makedirs(path, mode)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+def clean_meta_data(meta_data):
+    meta_data.pop('oo_name', None)
+    meta_data.pop('synthetic', None)
+    return {k: v for k, v in meta_data.iteritems() if v is not None}
+
+
+def main():
+    basedir = os.path.expanduser(CACHE_DIR)
+    safe_mkdir(basedir)
+    tempdir = tempfile.mkdtemp(dir=basedir)
+    inventory = multi_inventory.MultiInventory().run()
+    hostvars = inventory.get('_meta', {}).get('hostvars', {})
+    for group_name, meta_data in hostvars.iteritems():
+        if group_name.startswith(GROUP_PREFIX):
+            clusterid = group_name[len(GROUP_PREFIX):]
+            filename = os.path.join(tempdir, clusterid)
+            with open(filename, 'w') as cache_file:
+                content = json.dumps(clean_meta_data(meta_data), indent=2)
+                cache_file.write(content)
+    fulldir = os.path.join(basedir, 'v3')
+    if os.path.isdir(fulldir):
+        shutil.rmtree(fulldir)
+    os.rename(tempdir, fulldir)
+
+
+if __name__ == '__main__':
+    main()

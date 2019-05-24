@@ -1,0 +1,53 @@
+#!/bin/bash
+
+if [[ -n $1 ]]
+then
+  export CLUSTERID=$1
+fi
+
+if [[ -z "$CLUSTERID" ]]
+then
+  echo "Usage: source cluster <clusterid>" > /dev/stderr
+else
+  case "$CLUSTERID" in
+    # Special handling for test clusters.
+    mbarnestest1|mbarnestest2)
+      export AWS_PROFILE="opstest"
+      export AWS_DEFAULT_REGION="us-east-2"
+      ;;
+    *)
+      V3_PATH="$HOME/.cache/sre/clusters/v3/$CLUSTERID"
+      V4_PATH="$HOME/.cache/sre/clusters/v4/$CLUSTERID"
+      if [[ -f "$V3_PATH" ]]
+      then
+          export AWS_PROFILE=$(oo_account $CLUSTERID)
+          export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
+      elif [[ -f "$V4_PATH/kubeconfig" ]]
+      then
+          export KUBECONFIG="$V4_PATH/kubeconfig"
+          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID region.id)
+          unset AWS_PROFILE
+      else
+          echo "Unknown cluster '$CLUSTERID'" > /dev/stderr
+          unset AWS_PROFILE
+          unset AWS_DEFAULT_REGION
+      fi
+      ;;
+  esac
+
+  if [[ -n "$AWS_PROFILE" ]]
+  then
+    echo "         CLUSTERID : $CLUSTERID"
+    echo "       AWS_PROFILE : $AWS_PROFILE"
+    echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
+  elif [[ -n "$KUBECONFIG" ]]
+  then
+    echo "    (v4) CLUSTERID : $CLUSTERID"
+    echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
+  fi
+fi
+
+if [[ -n "$TMUX" ]]
+then
+  tmux rename-window "$CLUSTERID"
+fi

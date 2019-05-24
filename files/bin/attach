@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -e
+
+USAGE="Usage: $(basename $0) [master|infra|compute]"
+
+function print_usage() {
+  echo $USAGE > /dev/stderr
+  exit 2
+}
+
+if [[ -z "$CLUSTERID" ]]
+then
+  echo "CLUSTERID not set" > /dev/stderr
+  exit 2
+fi
+
+case $# in
+  0)
+    TYPE='master'
+    ;;
+  1)
+    TYPE=$1
+    ;;
+  *)
+    print_usage
+esac
+
+ssh $(pickone -t $TYPE $CLUSTERID)

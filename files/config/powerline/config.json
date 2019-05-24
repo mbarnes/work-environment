@@ -1,0 +1,16 @@
+{
+	"ext": {
+		"shell": {
+			"colorscheme": "default",
+			"theme": "default"
+		},
+		"tmux": {
+			"colorscheme": "default",
+			"theme": "default"
+		},
+		"vim": {
+			"colorscheme": "default",
+			"theme": "default"
+		}
+	}
+}
