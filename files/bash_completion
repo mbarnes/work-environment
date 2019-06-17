@@ -33,4 +33,4 @@ _source_cluster()
 }
 
 complete -F _source_cluster source
-complete -F _list_v3_clusters lscluster
+complete -F _list_v3_clusters lscluster oo_account oo_accountid oo_deployment oo_location oo_sublocation oo_test_cluster
