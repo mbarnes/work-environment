@@ -1,0 +1,719 @@
+#!/usr/bin/python
+#
+# Decommission a v3 OpenShift Dedicated cluster on Amazon Web Services.
+# Repeatedly prompts for confirmation before taking destructive action.
+#
+
+import boto3
+import json
+import os
+import sys
+import time
+
+from pprint import pprint
+
+def usage(exit_code=None):
+    print 'Usage: {0} [CLUSTERID]'.format(sys.argv[0])
+    if exit_code is not None:
+        sys.exit(exit_code)
+
+
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
+
+
+class DeleteResourceClosure(object):
+
+    ACTION_DESCRIPTION = 'Delete Unknown Resource'
+    IDENTITY_ATTRIBUTE = None
+
+    def __init__(self, client, resource):
+        self.client = client
+        self.resource = resource
+        self.identity = resource[self.IDENTITY_ATTRIBUTE]
+
+        # Try to determine the resource name.
+        tags = {tag['Key']: tag['Value'] for tag in resource.get('Tags', [])}
+        if 'Name' in tags:
+            self.name = '{0} ({1})'.format(tags['Name'], self.identity)
+        else:
+            self.name = self.identity
+
+    def __call__(self):
+        raise NotImplementedError
+
+    def __repr__(self):
+        return '{0}: {1}'.format(self.ACTION_DESCRIPTION, self.name)
+
+
+class DeleteAutoScalingGroupClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Auto Scaling Group'
+    IDENTITY_ATTRIBUTE = 'AutoScalingGroupName'
+
+    def __call__(self):
+        return self.client.delete_auto_scaling_group(
+            AutoScalingGroupName=self.identity,
+            ForceDelete=True)
+
+
+class DeleteInternetGatewayClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Internet Gateway'
+    IDENTITY_ATTRIBUTE = 'InternetGatewayId'
+
+    def detach_internet_gateway(self):
+        for item in self.resource.get('Attachments', []):
+            self.client.detach_internet_gateway(
+                InternetGatewayId=self.identity,
+                VpcId=item['VpcId'])
+
+    def __call__(self):
+        self.detach_internet_gateway()
+        return self.client.delete_internet_gateway(InternetGatewayId=self.identity)
+
+
+class DeleteLaunchConfigurationClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Launch Configuration'
+    IDENTITY_ATTRIBUTE = 'LaunchConfigurationName'
+
+    def __call__(self):
+        return self.client.delete_launch_configuration(LaunchConfigurationName=self.identity)
+
+
+class DeleteLoadBalancerClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Load Balancer'
+    IDENTITY_ATTRIBUTE = 'LoadBalancerName'
+
+    def __call__(self):
+        return self.client.delete_load_balancer(LoadBalancerName=self.identity)
+
+
+class DeleteNatGatewayClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete NAT Gateway'
+    IDENTITY_ATTRIBUTE = 'NatGatewayId'
+
+    def __call__(self):
+        return self.client.delete_nat_gateway(NatGatewayId=self.identity)
+
+
+class DeleteNetworkAclClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Network ACL'
+    IDENTITY_ATTRIBUTE = 'NetworkAclId'
+
+    def __call__(self):
+        return self.client.delete_network_acl(NetworkAclId=self.identity)
+
+
+class DeleteRouteTableClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Route Table'
+    IDENTITY_ATTRIBUTE = 'RouteTableId'
+
+    def __call__(self):
+        return self.client.delete_route_table(RouteTableId=self.identity)
+
+
+class DeleteS3BucketClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete S3 Bucket'
+    IDENTITY_ATTRIBUTE = 'Name'
+
+    def delete_objects(self):
+        result = self.client.list_objects_v2(Bucket=self.identity)
+        while True:
+            if 'Contents' in result:
+                object_keys = [{'Key': item['Key']} for item in result['Contents']]
+                delete_args = {'Objects': object_keys, 'Quiet': True}
+                self.client.delete_objects(
+                    Bucket=self.identity,
+                    Delete=delete_args)
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_objects_v2(
+                Bucket=self.identity,
+                ContinuationToken=result['NextContinuationToken'])
+
+    def __call__(self):
+        self.delete_objects()
+        return self.client.delete_bucket(Bucket=self.identity)
+
+
+class DeleteSecurityGroupClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Security Group'
+    IDENTITY_ATTRIBUTE = 'GroupId'
+
+    def __init__(self, client, resource):
+        super(DeleteSecurityGroupClosure, self).__init__(client, resource)
+        self.name = '{0} ({1})'.format(self.resource['GroupName'], self.identity)
+
+    def __call__(self):
+        return self.client.delete_security_group(GroupId=self.identity)
+
+
+class DeleteServerCertificateClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Server Certificate'
+    IDENTITY_ATTRIBUTE = 'ServerCertificateName'
+
+    def __call__(self):
+        return self.client.delete_server_certificate(ServerCertificateName=self.identity)
+
+
+class DeleteSnapshotClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Snapshot'
+    IDENTITY_ATTRIBUTE = 'SnapshotId'
+
+    def __call__(self):
+        return self.client.delete_snapshot(SnapshotId=self.identity)
+
+
+class DeleteSubnetClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Subnet'
+    IDENTITY_ATTRIBUTE = 'SubnetId'
+
+    def __call__(self):
+        return self.client.delete_subnet(SubnetId=self.identity)
+
+
+class DeleteUserClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete User'
+    IDENTITY_ATTRIBUTE = 'UserName'
+
+    def delete_access_keys(self):
+        result = self.client.list_access_keys(UserName=self.identity)
+        while True:
+            for item in result['AccessKeyMetadata']:
+                self.client.delete_access_key(
+                    UserName=item['UserName'],
+                    AccessKeyId=item['AccessKeyId'])
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_access_keys(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def delete_inline_user_policies(self):
+        result = self.client.list_user_policies(UserName=self.identity)
+        while True:
+            for policy_name in result['PolicyNames']:
+                self.client.delete_user_policy(
+                    UserName=self.identity,
+                    PolicyName=policy_name)
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_user_policies(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def delete_login_profile(self):
+        try:
+            self.client.delete_login_profile(UserName=self.identity)
+        except self.client.exceptions.NoSuchEntityException:
+            pass
+
+    def delete_mfa_devices(self):
+        result = self.client.list_mfa_devices(UserName=self.identity)
+        while True:
+            for item in result['MFADevices']:
+                self.client.deactivate_mfa_device(
+                    UserName=item['UserName'],
+                    SerialNumber=item['SerialNumber'])
+                self.client.delete_virtual_mfa_device(
+                    SerialNumber=item['SerialNumber'])
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_mfa_devices(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def delete_service_specific_credentials(self):
+        result = self.client.list_service_specific_credentials(UserName=self.identity)
+        for item in result['ServiceSpecificCredentials']:
+            self.client_delete_service_specific_credential(
+                UserName=item['ServiceUserName'],
+                ServiceSpecificCredentialId=item['ServiceSpecificCredentialId'])
+
+    def delete_signing_certificates(self):
+        result = self.client.list_signing_certificates(UserName=self.identity)
+        while True:
+            for item in result['Certificates']:
+                self.client_delete_signing_certificate(
+                    UserName=item['UserName'],
+                    CertificateId=item['CertificateId'])
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_signing_certificates(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def delete_ssh_public_keys(self):
+        result = self.client.list_ssh_public_keys(UserName=self.identity)
+        while True:
+            for item in result['SSHPublicKeys']:
+                self.client.delete_ssh_public_key(
+                    UserName=item['UserName'],
+                    SSHPublicKeyId=item['SSHPublicKeyId'])
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_ssh_public_keys(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def detach_user_policies(self):
+        result = self.client.list_attached_user_policies(UserName=self.identity)
+        while True:
+            for item in result['AttachedPolicies']:
+                self.client.detach_user_policy(
+                    UserName=self.identity,
+                    PolicyArn=item['PolicyArn'])
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_attached_user_policies(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def remove_user_from_groups(self):
+        result = self.client.list_groups_for_user(UserName=self.identity)
+        while True:
+            for item in result['Groups']:
+                self.client.remove_user_from_group(
+                    GroupName=item['GroupName'],
+                    UserName=self.identity)
+            if not result['IsTruncated']:
+                break
+            result = self.client.list_groups_for_user(
+                UserName=self.identity,
+                Marker=result['Marker'])
+
+    def __call__(self):
+        # See https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_manage.html#id_users_deleting_cli
+        self.delete_login_profile()
+        self.delete_access_keys()
+        self.delete_signing_certificates()
+        self.delete_ssh_public_keys()
+        self.delete_service_specific_credentials()
+        self.delete_mfa_devices()
+        self.delete_inline_user_policies()
+        self.detach_user_policies()
+        self.remove_user_from_groups()
+        return self.client.delete_user(UserName=self.identity)
+
+
+class DeleteVolumeClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete Volume'
+    IDENTITY_ATTRIBUTE = 'VolumeId'
+
+    def __call__(self):
+        return self.client.delete_volume(VolumeId=self.identity)
+
+
+class DeleteVpcClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete VPC'
+    IDENTITY_ATTRIBUTE = 'VpcId'
+
+    def __call__(self):
+        return self.client.delete_vpc(VpcId=self.identity)
+
+
+class DeleteVpcPeeringConnectionClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete VPC Peering Connection'
+    IDENTITY_ATTRIBUTE = 'VpcPeeringConnectionId'
+
+    def __call__(self):
+        return self.client.delete_vpc_peering_connection(VpcPeeringConnectionId=self.identity)
+
+
+class DeleteVpnConnectionClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete VPN Connection'
+    IDENTITY_ATTRIBUTE = 'VpnConnectionId'
+
+    def __call__(self):
+        return self.client.delete_vpn_connection(VpnConnectionId=self.identity)
+
+
+class DeleteVpnGatewayClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete VPN Gateway'
+    IDENTITY_ATTRIBUTE = 'VpnGatewayId'
+
+    def detach_vpn_gateway(self):
+        for item in self.resource.get('VpcAttachments', []):
+            self.client.detach_vpn_gateway(
+                VpcId=item['VpcId'],
+                VpnGatewayId=self.identity)
+
+    def __call__(self):
+        self.detach_vpn_gateway()
+        return self.client.delete_vpn_gateway(VpnGatewayId=self.identity)
+
+
+class TerminateInstanceClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Terminate Instance'
+    IDENTITY_ATTRIBUTE = 'InstanceId'
+
+    def __call__(self):
+        return self.client.terminate_instances(InstanceIds=[self.identity])
+
+
+class ClusterDecommission(object):
+
+    def __init__(self, clusterid):
+        self.clusterid = clusterid
+        self.things_to_delete = []
+
+        clients = ('autoscaling', 'ec2', 'elb', 'iam', 's3')
+        self.boto_clients = {key: boto3.client(key) for key in clients}
+
+    def __call__(self):
+        # Load Balancers
+        client = self.boto_clients['elb']
+        result = client.describe_load_balancers()
+        for item in result['LoadBalancerDescriptions']:
+            name = item['LoadBalancerName']
+            if name.startswith(self.clusterid + '-'):
+                closure = DeleteLoadBalancerClosure(client, item)
+                self.things_to_delete.append(closure)
+
+        self.delete_all_the_things()
+
+        terminating_instance_ids = []
+
+        # Auto Scaling Groups & Launch Configurations
+        client = self.boto_clients['autoscaling']
+        result = client.describe_auto_scaling_groups()
+        for item in result['AutoScalingGroups']:
+            name = item['AutoScalingGroupName']
+            if name.startswith(self.clusterid + ' '):
+                terminating_instance_ids.extend(
+                    [inst['InstanceId'] for inst in item['Instances']])
+                closure = DeleteAutoScalingGroupClosure(client, item)
+                self.things_to_delete.append(closure)
+        result = client.describe_launch_configurations()
+        for item in result['LaunchConfigurations']:
+            name = item['LaunchConfigurationName']
+            if name.startswith(self.clusterid + ' '):
+                closure = DeleteLaunchConfigurationClosure(client, item)
+                self.things_to_delete.append(closure)
+
+        self.delete_all_the_things()
+
+        # Instances (Master Hosts)
+        client = self.boto_clients['ec2']
+        result = client.describe_instances(Filters=[
+            {
+                'Name': 'tag:clusterid',
+                'Values': [self.clusterid]
+            },
+            {
+                'Name': 'tag:host-type',
+                'Values': ['master']
+            },
+            {
+                'Name': 'instance-state-name',
+                'Values': ['running']
+            }
+        ])
+        instances=[]
+        for reservation in result['Reservations']:
+            for item in reservation['Instances']:
+                terminating_instance_ids.append(item['InstanceId'])
+                closure = TerminateInstanceClosure(client, item)
+                self.things_to_delete.append(closure)
+
+        self.delete_all_the_things()
+
+        if instances:
+            print('Waiting for instances to terminate')
+            waiter = client.get_waiter('instance_terminated')
+            waiter.wait(InstanceIds=terminating_instance_ids)
+
+        # Volumes & Snapshots
+        # (Volume IDs are collected from snapshots)
+        client = self.boto_clients['ec2']
+        volume_ids = set()
+        result = client.describe_snapshots(Filters=[
+            {
+                'Name': 'tag:kubernetes.io/cluster/' + self.clusterid,
+                'Values': ['owned']
+            }
+        ])
+        snapshots = result['Snapshots']
+        for item in snapshots:
+            volume_ids.add(item['VolumeId'])
+        if volume_ids:
+            result = client.describe_volumes(VolumeIds=list(volume_ids))
+            for item in result['Volumes']:
+                closure = DeleteVolumeClosure(client, item)
+                self.things_to_delete.append(closure)
+
+            self.delete_all_the_things()
+
+            print 'Waiting for volumes to delete...'
+            waiter = client.get_waiter('volume_deleted')
+            waiter.wait(VolumeIds=list(volume_ids))
+
+        for item in snapshots:
+            closure = DeleteSnapshotClosure(client, item)
+            self.things_to_delete.append(closure)
+
+        self.delete_all_the_things()
+
+        # VPC
+        client = self.boto_clients['ec2']
+        result = client.describe_vpcs(Filters=[
+            {
+                'Name': 'tag:Name',
+                'Values': [self.clusterid]
+            }
+        ])
+        for vpc in result['Vpcs']:
+            # Subnets
+            result = client.describe_subnets(Filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            for item in result['Subnets']:
+                closure = DeleteSubnetClosure(client, item)
+                self.things_to_delete.append(closure)
+
+            # Internet Gateways
+            result = client.describe_internet_gateways(Filters=[
+                {
+                    'Name': 'attachment.vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            for item in result['InternetGateways']:
+                closure = DeleteInternetGatewayClosure(client, item)
+                self.things_to_delete.append(closure)
+
+            # Route Tables
+            result = client.describe_route_tables(Filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            for item in result['RouteTables']:
+                is_main_route_table = False
+                for association in item.get('Associations', []):
+                    if not association['Main']:
+                        client.disassociate_route_table(
+                            AssociationId=association['RouteTableAssociationId'])
+                    elif association['RouteTableId'] == item['RouteTableId']:
+                        is_main_route_table = True
+                if not is_main_route_table:
+                    closure = DeleteRouteTableClosure(client, item)
+                    self.things_to_delete.append(closure)
+
+            # NAT Gateways
+            result = client.describe_nat_gateways(Filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            for item in result['NatGateways']:
+                closure = DeleteNatGatewaysClosure(client, item)
+                self.things_to_delete.append(closure)
+
+            # VPC Peering Connections
+            result = client.describe_vpc_peering_connections(Filters=[
+                {
+                    'Name': 'requester-vpc-info.vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            for item in result['VpcPeeringConnections']:
+                closure = DeleteVpcPeeringConnectionClosure(client, item)
+                self.things_to_delete.append(closure)
+
+            # Network ACLs
+            result = client.describe_network_acls(Filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            for item in result['NetworkAcls']:
+                if not item['IsDefault']:
+                    closure = DeleteNetworkAclClosure(client, item)
+                    self.things_to_delete.append(closure)
+
+            # Security Groups
+            result = client.describe_security_groups(Filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            # Untangle security group dependencies before deleting.
+            # FIXME This is a destruction action before prompting
+            #       for confirmation!
+            for item in result['SecurityGroups']:
+                if item.get('IpPermissions', []):
+                    client.revoke_security_group_ingress(
+                        GroupId=item['GroupId'],
+                        IpPermissions=item['IpPermissions'])
+                if item.get('IpPermissionsEgress', []):
+                    client.revoke_security_group_egress(
+                        GroupId=item['GroupId'],
+                        IpPermissions=item['IpPermissionsEgress'])
+            for item in result['SecurityGroups']:
+                if item['GroupName'] != 'default':
+                    closure = DeleteSecurityGroupClosure(client, item)
+                    self.things_to_delete.append(closure)
+
+            # VPN Gateways & Connections
+            result = client.describe_vpn_gateways(Filters=[
+                {
+                    'Name': 'attachment.vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            vpn_connection_ids = []
+            vpn_gateways = result['VpnGateways']
+            for vpn_gateway in vpn_gateways:
+                # VPN Connections
+                result = client.describe_vpn_connections(Filters=[
+                    {
+                        'Name': 'vpn-gateway-id',
+                        'Values': [vpn_gateway['VpnGatewayId']]
+                    }
+                ])
+                for item in result['VpnConnections']:
+                    vpn_connection_ids.append(item['VpnConnectionId'])
+                    closure = DeleteVpnConnectionClosure(client, item)
+                    self.things_to_delete.append(closure)
+
+            if vpn_connection_ids:
+                self.delete_all_the_things()
+
+                print 'Waiting for VPN connections to delete...'
+                waiter = client.get_waiter('vpn_connection_deleted')
+                waiter.wait(VpnConnectionIds=vpn_connection_ids)
+
+            for item in vpn_gateways:
+                closure = DeleteVpnGatewayClosure(client, item)
+                self.things_to_delete.append(closure)
+
+            closure = DeleteVpcClosure(client, vpc)
+            self.things_to_delete.append(closure)
+
+            self.delete_all_the_things()
+
+        # S3
+        client = self.boto_clients['s3']
+        expected_bucket_names = (
+            'oso-{0}-docker-registry'.format(self.clusterid),
+            '{0}-rhmi-backup-s3'.format(self.clusterid),
+            '{0}-rhmi-3scale-s3'.format(self.clusterid))
+        result = client.list_buckets()
+        for item in result['Buckets']:
+            if item['Name'] in expected_bucket_names:
+                closure = DeleteS3BucketClosure(client, item)
+                self.things_to_delete.append(closure)
+                # Delete one bucket at a time.
+                self.delete_all_the_things()
+
+        # IAM Users, Groups and Server Certificates
+        client = self.boto_clients['iam']
+        expected_user_and_group_names = (
+            '{0}-rhmi-backup-s3'.format(self.clusterid),
+            '{0}-rhmi-3scale-s3'.format(self.clusterid))
+        result = client.list_users()
+        while True:
+            for item in result['Users']:
+                if item['UserName'] in expected_user_and_group_names:
+                    closure = DeleteUserClosure(client, item)
+                    self.things_to_delete.append(closure)
+            if not result['IsTruncated']:
+                break
+            result = client.list_users(Marker=result['Marker'])
+        result = client.list_server_certificates()
+        while True:
+            for item in result['ServerCertificateMetadataList']:
+                if item['ServerCertificateName'] == self.clusterid:
+                    closure = DeleteServerCertificateClosure(client, item)
+                    self.things_to_delete.append(closure)
+            if not result['IsTruncated']:
+                break
+            result = client.list_server_certificates(Marker=result['Marker'])
+
+        self.delete_all_the_things()
+
+
+    def delete_all_the_things(self):
+        if self.things_to_delete:
+            print
+            pprint(self.things_to_delete)
+            print
+            n_things = len(self.things_to_delete)
+            if n_things == 1:
+                question = 'Perform this action?'
+            elif n_things == 2:
+                question = 'Perform these actions?'
+            else:
+                question = 'Perform all {0} actions?'.format(n_things)
+            if query_yes_no(question):
+                while self.things_to_delete:
+                    self.things_to_delete.pop(0)()
+                pass
+            else:
+                sys.exit(3)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        clusterid = sys.argv[1]
+    else:
+        clusterid = os.getenv('CLUSTERID')
+        if clusterid is None:
+            usage(2)
+
+    cluster_decom = ClusterDecommission(clusterid)
+    cluster_decom()
