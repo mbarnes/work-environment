@@ -1,4 +1,20 @@
 #!/bin/bash
+#
+# Simple wrapper for SSH'ing to an OpenShift v3 cluster node.
+#
+#   attach [master|infra|compute]  (default: master)
+#
+# Requires environment variable CLUSTERID to be set.
+#
+# Typical usage pattern:
+#
+#   $ source cluster <cluster-name>
+#            CLUSTERID : cluster-name
+#          AWS_PROFILE : cluster-name's account no.
+#   AWS_DEFAULT_REGION : cluster-name's AWS region
+#
+#   $ attach
+#
 
 set -e
 

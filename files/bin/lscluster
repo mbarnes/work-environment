@@ -1,4 +1,21 @@
 #!/bin/bash
+#
+# Lists basic account and cloud-provider information, as well as
+# relevant source control directories for an OpenShift v3 cluster.
+#
+#   lscluster [CLUSTERID]
+#
+# Uses the environment variable CLUSTERID by default.
+#
+# Typical usage pattern:
+#
+#   $ source cluster <cluster-name>
+#            CLUSTERID : cluster-name
+#          AWS_PROFILE : cluster-name's account no.
+#   AWS_DEFAULT_REGION : cluster-name's AWS region
+#
+#   $ lscluster
+#
 
 CID=${1:-$CLUSTERID}
 if [[ -z $CID ]]
