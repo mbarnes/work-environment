@@ -455,7 +455,6 @@ class ClusterDecommission(object):
                 'Values': ['running']
             }
         ])
-        instances=[]
         for reservation in result['Reservations']:
             for item in reservation['Instances']:
                 terminating_instance_ids.append(item['InstanceId'])
@@ -464,7 +463,7 @@ class ClusterDecommission(object):
 
         self.delete_all_the_things()
 
-        if instances:
+        if terminating_instance_ids:
             print('Waiting for instances to terminate')
             waiter = client.get_waiter('instance_terminated')
             waiter.wait(InstanceIds=terminating_instance_ids)
