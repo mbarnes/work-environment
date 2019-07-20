@@ -1,0 +1,78 @@
+#!/usr/bin/python
+#
+# Automatically acknowledges PagerDuty incidents assigned to the
+# owner of a user-level API token.
+#
+# This is a quality-of-life improvement for weekend on-call shifts,
+# allowing one to be temporarily unreachable by pager or to not be
+# disturbed by low-priority incidents, without risking a PagerDuty
+# escalation.
+#
+# Use responsibly!
+#
+
+import os
+import sys
+import pypd
+import time
+import argparse
+
+ENVIRON_VARNAME = 'PAGERDUTY_API_USER_TOKEN'
+
+# Incidents are forwarded to my mobile devices
+# after 5 minutes so check for incidents every
+# 4 minutes by default.
+DEFAULT_INTERVAL = 4
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    default_token = os.getenv(ENVIRON_VARNAME)
+    parser.add_argument(
+        '--token',
+        metavar='TOKEN', type=str,
+        help='PagerDuty user-level API token',
+        default=default_token)
+    parser.add_argument(
+        '-i', '--interval',
+        metavar='MINS', type=int,
+        help='polling interval in minutes ' +
+        '(default {0})'.format(DEFAULT_INTERVAL),
+        default=DEFAULT_INTERVAL)
+    parser.add_argument(
+        '-l', '--low-urgency-only',
+        action='store_true',
+        help='only ACK low urgency incidents')
+    args = parser.parse_args()
+
+    if not args.token:
+        sys.stderr.write(
+            'Missing PagerDuty user-level API token; ' +
+            'pass --token or set {0}.\n'.format(ENVIRON_VARNAME))
+        sys.exit(2)
+
+    pypd.api_key = args.token
+    user = pypd.User.fetch('me')
+    email = user.json['email']
+    interval_secs = 60 * args.interval
+
+    urgencies = 'low-urgency' if args.low_urgency_only else 'all'
+    print 'Polling every {0} minutes for {1} incidents assigned to {2}'.format(
+        args.interval, urgencies, user.json['name'])
+
+    query_params = {
+        'statuses': ['triggered'],
+        'user_ids': [user.id]
+    }
+    if args.low_urgency_only:
+        query_params['urgencies'] = ['low']
+
+    while True:
+        incident_list = pypd.Incident.find(**query_params)
+
+        for incident in incident_list:
+            summary = incident.json['summary']
+            print time.asctime(), 'ACK:', summary
+            incident.acknowledge(email)
+
+        time.sleep(interval_secs)
