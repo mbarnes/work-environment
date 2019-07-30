@@ -482,10 +482,18 @@ class ClusterDecommission(object):
         for item in snapshots:
             volume_ids.add(item['VolumeId'])
         if volume_ids:
-            result = client.describe_volumes(VolumeIds=list(volume_ids))
+            # Some snapshots may be associated with volumes that
+            # no longer exist.  So passing the volume ID list to
+            # describe_volumes() may cause it to fail on missing
+            # volumes with InvalidVolume.NotFound.  So instead,
+            # request ALL the volumes and delete only the ones
+            # associated with the cluster by way of snapshots
+            # tagged with "kubernetes.io/cluster/CLUSTERID".
+            result = client.describe_volumes()
             for item in result['Volumes']:
-                closure = DeleteVolumeClosure(client, item)
-                self.things_to_delete.append(closure)
+                if item['VolumeId'] in volume_ids:
+                    closure = DeleteVolumeClosure(client, item)
+                    self.things_to_delete.append(closure)
 
             self.delete_all_the_things()
 
