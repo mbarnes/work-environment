@@ -1,0 +1,72 @@
+#!/usr/bin/python
+#
+# Reassigns all PagerDuty incidents assigned to the owner of a
+# user-level API token.
+#
+# The intention is to schedule this as a job to run at the end
+# of a shift.  For example:
+#
+#   $ at 6:30pm
+#   at> pagerduty-reassign USERNAME
+#
+
+import os
+import sys
+import pypd
+import argparse
+
+ENVIRON_VARNAME = 'PAGERDUTY_API_USER_TOKEN'
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    default_token = os.getenv(ENVIRON_VARNAME)
+    parser.add_argument(
+        'user_or_email', type=str,
+        help='Assign to this user or email')
+    parser.add_argument(
+        '--token',
+        metavar='TOKEN', type=str,
+        help='PagerDuty user-level API token',
+        default=default_token)
+    args = parser.parse_args()
+
+    if not args.token:
+        sys.stderr.write(
+            'Missing PagerDuty user-level API token; ' +
+            'pass --token or set {0}.\n'.format(ENVIRON_VARNAME))
+        sys.exit(2)
+
+    pypd.api_key = args.token
+    user = pypd.User.fetch('me')
+    email = user.json['email']
+
+    user_query_results = pypd.User.find(query=args.user_or_email)
+
+    if len(user_query_results) < 1:
+        sys.stderr.write(
+            'User not found: {0}\n'.format(args.user_or_email))
+        sys.exit(1)
+
+    if len(user_query_results) > 1:
+        sys.stderr.write(
+            'Ambiguous user ({0}):\n'.format(args.user_or_email))
+        for user in user_query_results:
+            user_name = unicode(user.json['name']).encode('utf8')
+            sys.stderr.write('  {0} <{1}>\n'.format(user_name, user.json['email']))
+        sys.exit(1)
+
+    target_user = user_query_results.pop()
+    target_user_name = unicode(target_user.json['name']).encode('utf8')
+
+    incident_list = pypd.Incident.find(user_ids=[user.id])
+
+    if not incident_list:
+        print 'No incidents to reassign'
+    else:
+        print 'Reassigning to {0}:'.format(target_user_name)
+
+    for incident in incident_list:
+        summary = incident.json['summary']
+        print '  -', summary
+        incident.reassign(email, [target_user.id])
