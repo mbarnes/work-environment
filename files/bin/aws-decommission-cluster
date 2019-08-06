@@ -409,12 +409,24 @@ class ClusterDecommission(object):
     def __call__(self):
         # Load Balancers
         client = self.boto_clients['elb']
+        load_balancers = {}
         result = client.describe_load_balancers()
         for item in result['LoadBalancerDescriptions']:
             name = item['LoadBalancerName']
-            if name.startswith(self.clusterid + '-'):
-                closure = DeleteLoadBalancerClosure(client, item)
-                self.things_to_delete.append(closure)
+            load_balancers[name] = item
+        load_balancer_names = list(load_balancers.keys())
+        if load_balancer_names:
+            result = client.describe_tags(LoadBalancerNames=load_balancer_names)
+            for item in result['TagDescriptions']:
+                name = item['LoadBalancerName']
+                if name in load_balancers:
+                    load_balancers[name].update(item)
+            for item in load_balancers.values():
+                key = 'kubernetes.io/cluster/' + self.clusterid
+                tags = {tag['Key']: tag['Value'] for tag in item.get('Tags', [])}
+                if key in tags:
+                    closure = DeleteLoadBalancerClosure(client, item)
+                    self.things_to_delete.append(closure)
 
         self.delete_all_the_things()
 
