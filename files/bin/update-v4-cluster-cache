@@ -27,35 +27,15 @@ def get_managed_clusters():
     return json.loads(json_result).get('items', [])
 
 
-def get_credentials(clusterid):
-    path = CLUSTERS_API_PATH + '/{0}/credentials'.format(clusterid)
-    with open(os.devnull, 'w') as devnull:
-        json_result = subprocess.check_output(
-            ['uhc', 'get', path], stderr=devnull)
-    return json.loads(json_result)
-
-
 def main():
     basedir = os.path.expanduser(CACHE_DIR)
     safe_mkdir(basedir)
     tempdir = tempfile.mkdtemp(dir=basedir)
-
     for cluster in get_managed_clusters():
-        try:
-            creds = get_credentials(cluster['id'])
-        except subprocess.CalledProcessError:
-            continue
-
-        clusterdir = os.path.join(tempdir, cluster['name'])
-        safe_mkdir(clusterdir)
-
-        with open(os.path.join(clusterdir, 'details'), 'w') as outfile:
-            outfile.write(json.dumps(cluster, indent=2))
-            outfile.write('\n')
-
-        with open(os.path.join(clusterdir, 'kubeconfig'), 'w') as outfile:
-            outfile.write(creds['kubeconfig'])
-
+        filename = os.path.join(tempdir, cluster['name'])
+        with open(filename, 'w') as cache_file:
+            content = json.dumps(cluster, indent=2)
+            cache_file.write(content + '\n')
     fulldir = os.path.join(basedir, 'v4')
     if os.path.isdir(fulldir):
         shutil.rmtree(fulldir)

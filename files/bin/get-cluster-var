@@ -25,7 +25,7 @@ then
 fi
 
 V3_FILE="$HOME/.cache/sre/clusters/v3/$CLUSTER"
-V4_FILE="$HOME/.cache/sre/clusters/v4/$CLUSTER/details"
+V4_FILE="$HOME/.cache/sre/clusters/v4/$CLUSTER"
 if [[ -f $V3_FILE ]]
 then
   if [[ -n $VARNAME ]]

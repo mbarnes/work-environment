@@ -53,7 +53,7 @@ def main():
             filename = os.path.join(tempdir, clusterid)
             with open(filename, 'w') as cache_file:
                 content = json.dumps(clean_meta_data(meta_data), indent=2)
-                cache_file.write(content)
+                cache_file.write(content + '\n')
     fulldir = os.path.join(basedir, 'v3')
     if os.path.isdir(fulldir):
         shutil.rmtree(fulldir)
