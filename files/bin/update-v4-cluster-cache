@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import argparse
 import errno
 import json
 import os
@@ -9,6 +10,7 @@ import tempfile
 
 CACHE_DIR = '~/.cache/sre/clusters'
 CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters'
+OCM_COMMAND_DEFAULT = os.path.expanduser('~/go/bin/ocm')
 
 def safe_mkdir(path, mode=0777):
     try:
@@ -20,18 +22,18 @@ def safe_mkdir(path, mode=0777):
             raise
 
 
-def get_managed_clusters():
+def get_managed_clusters(ocm_command):
     json_result = subprocess.check_output([
-        'uhc', 'get', CLUSTERS_API_PATH,
+        ocm_command, 'get', CLUSTERS_API_PATH,
         '--parameter=search=managed=\'true\''])
     return json.loads(json_result).get('items', [])
 
 
-def main():
+def main(args):
     basedir = os.path.expanduser(CACHE_DIR)
     safe_mkdir(basedir)
     tempdir = tempfile.mkdtemp(dir=basedir)
-    for cluster in get_managed_clusters():
+    for cluster in get_managed_clusters(args.ocm_command):
         filename = os.path.join(tempdir, cluster['name'])
         with open(filename, 'w') as cache_file:
             content = json.dumps(cluster, indent=2)
@@ -43,4 +45,11 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--ocm-command', metavar='PATH',
+        default=OCM_COMMAND_DEFAULT,
+        help='path to "ocm" command (default: {})'.format(OCM_COMMAND_DEFAULT))
+    args = parser.parse_args()
+
+    main(args)
