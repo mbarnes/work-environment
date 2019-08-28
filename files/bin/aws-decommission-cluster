@@ -415,8 +415,13 @@ class ClusterDecommission(object):
             name = item['LoadBalancerName']
             load_balancers[name] = item
         load_balancer_names = list(load_balancers.keys())
-        if load_balancer_names:
-            result = client.describe_tags(LoadBalancerNames=load_balancer_names)
+        while load_balancer_names:
+            # XXX describe_tags() apparently has a limit of 20 names?
+            #     Not documented AFAICT, but based on error message:
+            #     "Member must have length less than or equal to 20"
+            #     Not refering to name lengths, but the list length.
+            result = client.describe_tags(LoadBalancerNames=load_balancer_names[:20])
+            load_balancer_names[:20] = []
             for item in result['TagDescriptions']:
                 name = item['LoadBalancerName']
                 if name in load_balancers:
