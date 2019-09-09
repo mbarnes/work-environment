@@ -3,6 +3,12 @@
 # Decommission a v3 OpenShift Dedicated cluster on Amazon Web Services.
 # Repeatedly prompts for confirmation before taking destructive action.
 #
+# To use:
+#   - export CLUSTERID=<cluster-to-decommission>
+#   - export AWS_PROFILE=$(ohi -c $CLUSTERID --get-cluster-var oo_account)
+#   - export AWS_DEFAULT_REGION=$(ohi -c $CLUSTERID --get-cluster-var oo_sublocation)
+#   - aws-decommission-cluster  # uses CLUSTERID variable by default
+#
 
 import boto3
 import json
