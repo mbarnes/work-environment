@@ -741,7 +741,8 @@ class ClusterDecommission(object):
     def delete_all_the_things(self):
         if self.things_to_delete:
             print
-            pprint(self.things_to_delete)
+            for thing in self.things_to_delete:
+              print '- {0}'.format(thing)
             print
             n_things = len(self.things_to_delete)
             if n_things == 1:
