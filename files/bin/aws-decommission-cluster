@@ -487,11 +487,18 @@ class ClusterDecommission(object):
             waiter.wait(InstanceIds=terminating_instance_ids)
 
         # Volumes & Snapshots
-        # First delete volumes that are properly tagged.  Then
-        # collect any additional untagged volumes from snapshot
-        # references.  Then delete tagged snapshots.
         client = self.boto_clients['ec2']
         volume_ids = set()
+        result = client.describe_volumes(Filters=[
+            {
+                'Name': 'tag:KubernetesCluster',
+                'Values': [self.clusterid]
+            }
+        ])
+        for item in result['Volumes']:
+            closure = DeleteVolumeClosure(client, item)
+            self.things_to_delete.append(closure)
+            volume_ids.add(item['VolumeId'])
         result = client.describe_volumes(Filters=[
             {
                 'Name': 'tag:kubernetes.io/cluster/' + self.clusterid,
@@ -510,37 +517,13 @@ class ClusterDecommission(object):
             waiter = client.get_waiter('volume_deleted')
             waiter.wait(VolumeIds=list(volume_ids))
 
-        volume_ids = set()
         result = client.describe_snapshots(Filters=[
             {
                 'Name': 'tag:kubernetes.io/cluster/' + self.clusterid,
                 'Values': ['owned']
             }
         ])
-        snapshots = result['Snapshots']
-        for item in snapshots:
-            volume_ids.add(item['VolumeId'])
-        if volume_ids:
-            # Some snapshots may be associated with volumes that
-            # no longer exist.  So passing the volume ID list to
-            # describe_volumes() may cause it to fail on missing
-            # volumes with InvalidVolume.NotFound.  So instead,
-            # request ALL the volumes and delete only the ones
-            # associated with the cluster by way of snapshots
-            # tagged with "kubernetes.io/cluster/CLUSTERID".
-            result = client.describe_volumes()
-            for item in result['Volumes']:
-                if item['VolumeId'] in volume_ids:
-                    closure = DeleteVolumeClosure(client, item)
-                    self.things_to_delete.append(closure)
-
-            self.delete_all_the_things()
-
-            print 'Waiting for volumes to delete...'
-            waiter = client.get_waiter('volume_deleted')
-            waiter.wait(VolumeIds=list(volume_ids))
-
-        for item in snapshots:
+        for item in result['Snapshots']:
             closure = DeleteSnapshotClosure(client, item)
             self.things_to_delete.append(closure)
 
