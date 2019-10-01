@@ -772,5 +772,11 @@ if __name__ == '__main__':
         region_name=args.region_name,
         profile_name=args.profile_name)
 
+    banner = "Decommissioning cluster '{0}' under {1} in {2}".format(
+        args.clusterid, args.profile_name, args.region_name)
+    print '-' * len(banner)
+    print banner
+    print '-' * len(banner)
+
     cluster_decom = ClusterDecommission(args.clusterid)
     cluster_decom()
