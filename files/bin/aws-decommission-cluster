@@ -389,6 +389,28 @@ class DeleteVpnGatewayClosure(DeleteResourceClosure):
         return self.client.delete_vpn_gateway(VpnGatewayId=self.identity)
 
 
+class RevokeSecurityGroupEgressClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Revoke Security Group Egress'
+    IDENTITY_ATTRIBUTE = 'GroupId'
+
+    def __call__(self):
+        return self.client.revoke_security_group_egress(
+            GroupId=self.identity,
+            IpPermissions=self.resource['IpPermissionsEgress'])
+
+
+class RevokeSecurityGroupIngressClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Revoke Security Group Ingress'
+    IDENTITY_ATTRIBUTE = 'GroupId'
+
+    def __call__(self):
+        return self.client.revoke_security_group_ingress(
+            GroupId=self.identity,
+            IpPermissions=self.resource['IpPermissions'])
+
+
 class TerminateInstanceClosure(DeleteResourceClosure):
 
     ACTION_DESCRIPTION = 'Terminate Instance'
@@ -428,9 +450,11 @@ class ClusterDecommission(object):
                 if name in load_balancers:
                     load_balancers[name].update(item)
             for item in load_balancers.values():
-                key = 'kubernetes.io/cluster/' + self.clusterid
                 tags = {tag['Key']: tag['Value'] for tag in item.get('Tags', [])}
-                if key in tags:
+                load_balancer_belongs_to_cluster = (
+                    'kubernetes.io/cluster/' + self.clusterid in tags
+                    or tags.get('KubernetesCluster') == self.clusterid)
+                if load_balancer_belongs_to_cluster:
                     closure = DeleteLoadBalancerClosure(client, item)
                     self.things_to_delete.append(closure)
 
@@ -441,32 +465,47 @@ class ClusterDecommission(object):
         # Auto Scaling Groups & Launch Configurations
         client = self.boto_clients['autoscaling']
         result = client.describe_auto_scaling_groups()
-        for item in result['AutoScalingGroups']:
-            name = item['AutoScalingGroupName']
-            if name.startswith(self.clusterid + ' '):
-                terminating_instance_ids.extend(
-                    [inst['InstanceId'] for inst in item['Instances']])
-                closure = DeleteAutoScalingGroupClosure(client, item)
-                self.things_to_delete.append(closure)
+        while True:
+            for item in result['AutoScalingGroups']:
+                name = item['AutoScalingGroupName']
+                if name.startswith(self.clusterid + ' '):
+                    terminating_instance_ids.extend(
+                        [inst['InstanceId'] for inst in item['Instances']])
+                    closure = DeleteAutoScalingGroupClosure(client, item)
+                    self.things_to_delete.append(closure)
+            if result.get('NextToken'):
+                result = client.describe_auto_scaling_groups(
+                    NextToken=result['NextToken'])
+            else:
+                break
         result = client.describe_launch_configurations()
-        for item in result['LaunchConfigurations']:
-            name = item['LaunchConfigurationName']
-            if name.startswith(self.clusterid + ' '):
-                closure = DeleteLaunchConfigurationClosure(client, item)
-                self.things_to_delete.append(closure)
+        while True:
+            for item in result['LaunchConfigurations']:
+                name = item['LaunchConfigurationName']
+                if name.startswith(self.clusterid + ' '):
+                    closure = DeleteLaunchConfigurationClosure(client, item)
+                    self.things_to_delete.append(closure)
+            if result.get('NextToken'):
+                result = client.describe_launch_configuration(
+                    NextToken=result['NextToken'])
+            else:
+                break
 
         self.delete_all_the_things()
 
-        # Instances (Master Hosts)
+        if terminating_instance_ids:
+            client = self.boto_clients['ec2']
+            print('Waiting for instances to terminate')
+            waiter = client.get_waiter('instance_terminated')
+            waiter.wait(InstanceIds=terminating_instance_ids)
+            terminating_instance_id = []
+
+        # Independent Instances (no Auto-Scaling Group)
         client = self.boto_clients['ec2']
         result = client.describe_instances(Filters=[
             {
                 'Name': 'tag:clusterid',
                 'Values': [self.clusterid]
-            },
-            {
-                'Name': 'tag:host-type',
-                'Values': ['master']
             },
             {
                 'Name': 'instance-state-name',
@@ -545,9 +584,15 @@ class ClusterDecommission(object):
                     'Values': [vpc['VpcId']]
                 }
             ])
-            for item in result['Subnets']:
-                closure = DeleteSubnetClosure(client, item)
-                self.things_to_delete.append(closure)
+            while True:
+                for subnet in result['Subnets']:
+                    closure = DeleteSubnetClosure(client, subnet)
+                    self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    result = client.describe_subnets(
+                        NextToken=result['NextToken'])
+                else:
+                    break;
 
             # Internet Gateways
             result = client.describe_internet_gateways(Filters=[
@@ -556,9 +601,15 @@ class ClusterDecommission(object):
                     'Values': [vpc['VpcId']]
                 }
             ])
-            for item in result['InternetGateways']:
-                closure = DeleteInternetGatewayClosure(client, item)
-                self.things_to_delete.append(closure)
+            while True:
+                for item in result['InternetGateways']:
+                    closure = DeleteInternetGatewayClosure(client, item)
+                    self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    result = client.describe_internet_gateways(
+                        NextToken=result['NextToken'])
+                else:
+                    break
 
             # Route Tables
             result = client.describe_route_tables(Filters=[
@@ -567,17 +618,23 @@ class ClusterDecommission(object):
                     'Values': [vpc['VpcId']]
                 }
             ])
-            for item in result['RouteTables']:
-                is_main_route_table = False
-                for association in item.get('Associations', []):
-                    if not association['Main']:
-                        client.disassociate_route_table(
-                            AssociationId=association['RouteTableAssociationId'])
-                    elif association['RouteTableId'] == item['RouteTableId']:
-                        is_main_route_table = True
-                if not is_main_route_table:
-                    closure = DeleteRouteTableClosure(client, item)
-                    self.things_to_delete.append(closure)
+            while True:
+                for item in result['RouteTables']:
+                    is_main_route_table = False
+                    for association in item.get('Associations', []):
+                        if not association['Main']:
+                            client.disassociate_route_table(
+                                AssociationId=association['RouteTableAssociationId'])
+                        elif association['RouteTableId'] == item['RouteTableId']:
+                            is_main_route_table = True
+                    if not is_main_route_table:
+                        closure = DeleteRouteTableClosure(client, item)
+                        self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    result = client.describe_route_tables(
+                        NextToken=result['NextToken'])
+                else:
+                    break
 
             # NAT Gateways
             result = client.describe_nat_gateways(Filters=[
@@ -586,9 +643,15 @@ class ClusterDecommission(object):
                     'Values': [vpc['VpcId']]
                 }
             ])
-            for item in result['NatGateways']:
-                closure = DeleteNatGatewaysClosure(client, item)
-                self.things_to_delete.append(closure)
+            while True:
+                for item in result['NatGateways']:
+                    closure = DeleteNatGatewaysClosure(client, item)
+                    self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    result = client.describe_nat_gateways(
+                        NextToken=result['NextToken'])
+                else:
+                    break
 
             # VPC Peering Connections
             result = client.describe_vpc_peering_connections(Filters=[
@@ -597,9 +660,15 @@ class ClusterDecommission(object):
                     'Values': [vpc['VpcId']]
                 }
             ])
-            for item in result['VpcPeeringConnections']:
-                closure = DeleteVpcPeeringConnectionClosure(client, item)
-                self.things_to_delete.append(closure)
+            while True:
+                for item in result['VpcPeeringConnections']:
+                    closure = DeleteVpcPeeringConnectionClosure(client, item)
+                    self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    result = client.describe_vpc_peering_connections(
+                        NextToken=result['NextToken'])
+                else:
+                    break
 
             # Network ACLs
             result = client.describe_network_acls(Filters=[
@@ -608,31 +677,41 @@ class ClusterDecommission(object):
                     'Values': [vpc['VpcId']]
                 }
             ])
-            for item in result['NetworkAcls']:
-                if not item['IsDefault']:
-                    closure = DeleteNetworkAclClosure(client, item)
-                    self.things_to_delete.append(closure)
+            while True:
+                for item in result['NetworkAcls']:
+                    if not item['IsDefault']:
+                        closure = DeleteNetworkAclClosure(client, item)
+                        self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    reult = client.describe_network_acls(
+                        NextToken=result['NextToken'])
+                else:
+                    break
 
             # Security Groups
+            security_groups = []
             result = client.describe_security_groups(Filters=[
                 {
                     'Name': 'vpc-id',
                     'Values': [vpc['VpcId']]
                 }
             ])
+            while True:
+                security_groups.extend(result['SecurityGroups'])
+                if result.get('NextToken'):
+                    result = client.describe_security_groups(
+                        NextToken=result['NextToken'])
+                else:
+                    break
             # Untangle security group dependencies before deleting.
-            # FIXME This is a destruction action before prompting
-            #       for confirmation!
-            for item in result['SecurityGroups']:
+            for item in security_groups:
                 if item.get('IpPermissions', []):
-                    client.revoke_security_group_ingress(
-                        GroupId=item['GroupId'],
-                        IpPermissions=item['IpPermissions'])
+                    closure = RevokeSecurityGroupIngressClosure(client, item)
+                    self.things_to_delete.append(closure)
                 if item.get('IpPermissionsEgress', []):
-                    client.revoke_security_group_egress(
-                        GroupId=item['GroupId'],
-                        IpPermissions=item['IpPermissionsEgress'])
-            for item in result['SecurityGroups']:
+                    closure = RevokeSecurityGroupEgressClosure(client, item)
+                    self.things_to_delete.append(closure)
+            for item in security_groups:
                 if item['GroupName'] != 'default':
                     closure = DeleteSecurityGroupClosure(client, item)
                     self.things_to_delete.append(closure)
