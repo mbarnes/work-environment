@@ -11,7 +11,7 @@ then
 else
   case "$CLUSTERID" in
     # Special handling for v3 test clusters.
-    mbarnestest1|mbarnestest2)
+    mbarnestest*)
       export AWS_PROFILE="opstest"
       export AWS_DEFAULT_REGION="us-east-2"
       ;;
