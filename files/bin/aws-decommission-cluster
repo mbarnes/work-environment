@@ -422,8 +422,9 @@ class TerminateInstanceClosure(DeleteResourceClosure):
 
 class ClusterDecommission(object):
 
-    def __init__(self, clusterid):
+    def __init__(self, clusterid, assume_yes):
         self.clusterid = clusterid
+        self.assume_yes = assume_yes
         self.things_to_delete = []
 
         clients = ('autoscaling', 'ec2', 'elb', 'iam', 's3')
@@ -800,15 +801,19 @@ class ClusterDecommission(object):
             print
             for thing in self.things_to_delete:
               print '- {0}'.format(thing)
-            print
-            n_things = len(self.things_to_delete)
-            if n_things == 1:
-                question = 'Perform this action?'
-            elif n_things == 2:
-                question = 'Perform these actions?'
+            if self.assume_yes:
+                proceed = True
             else:
-                question = 'Perform all {0} actions?'.format(n_things)
-            if query_yes_no(question):
+                print
+                n_things = len(self.things_to_delete)
+                if n_things == 1:
+                    question = 'Perform this action?'
+                elif n_things == 2:
+                    question = 'Perform these actions?'
+                else:
+                    question = 'Perform all {0} actions?'.format(n_things)
+                proceed = query_yes_no(question)
+            if proceed:
                 while self.things_to_delete:
                     self.things_to_delete.pop(0)()
                 pass
@@ -832,6 +837,10 @@ if __name__ == '__main__':
         '--region', '-r', dest='region_name',
         default=os.environ.get('AWS_DEFAULT_REGION'),
         help='AWS region name (default: $AWS_DEFAULT_REGION)')
+    parser.add_argument(
+        '--assumeyes', '-y', dest='assume_yes',
+        action='store_true',
+        help='Skip prompts, assume yes for all questions')
     args = parser.parse_args()
 
     if not (args.clusterid and args.profile_name and args.region_name):
@@ -857,5 +866,5 @@ if __name__ == '__main__':
     print banner
     print '-' * len(banner)
 
-    cluster_decom = ClusterDecommission(args.clusterid)
+    cluster_decom = ClusterDecommission(args.clusterid, args.assume_yes)
     cluster_decom()
