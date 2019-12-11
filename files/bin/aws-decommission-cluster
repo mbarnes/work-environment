@@ -355,6 +355,15 @@ class DeleteVpcClosure(DeleteResourceClosure):
         return self.client.delete_vpc(VpcId=self.identity)
 
 
+class DeleteVpcEndpointClosure(DeleteResourceClosure):
+
+    ACTION_DESCRIPTION = 'Delete VPC Endpoint'
+    IDENTITY_ATTRIBUTE = 'VpcEndpointId'
+
+    def __call__(self):
+        return self.client.delete_vpc_endpoints(VpcEndpointIds=[self.identity])
+
+
 class DeleteVpcPeeringConnectionClosure(DeleteResourceClosure):
 
     ACTION_DESCRIPTION = 'Delete VPC Peering Connection'
@@ -650,6 +659,23 @@ class ClusterDecommission(object):
                     self.things_to_delete.append(closure)
                 if result.get('NextToken'):
                     result = client.describe_nat_gateways(
+                        NextToken=result['NextToken'])
+                else:
+                    break
+
+            # VPC Endpoints
+            result = client.describe_vpc_endpoints(Filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc['VpcId']]
+                }
+            ])
+            while True:
+                for item in result['VpcEndpoints']:
+                    closure = DeleteVpcEndpointClosure(client, item)
+                    self.things_to_delete.append(closure)
+                if result.get('NextToken'):
+                    result = client.describe_vpc_endpoints(
                         NextToken=result['NextToken'])
                 else:
                     break
