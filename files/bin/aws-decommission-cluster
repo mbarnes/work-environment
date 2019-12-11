@@ -4,10 +4,17 @@
 # Repeatedly prompts for confirmation before taking destructive action.
 #
 # To use:
-#   - export CLUSTERID=<cluster-to-decommission>
-#   - export AWS_PROFILE=$(ohi -c $CLUSTERID --get-cluster-var oo_account)
-#   - export AWS_DEFAULT_REGION=$(ohi -c $CLUSTERID --get-cluster-var oo_sublocation)
-#   - aws-decommission-cluster  # uses CLUSTERID variable by default
+#
+#   $ export CLUSTERID=<cluster-to-decommission>
+#   $ export AWS_PROFILE=$(ohi -c $CLUSTERID --get-cluster-var oo_account)
+#   $ export AWS_DEFAULT_REGION=$(ohi -c $CLUSTERID --get-cluster-var oo_sublocation)
+#   $ aws_decommission_cluster.py
+#
+# Or, as a one-liner:
+#
+#   $ aws_decommission_cluster.py --profile=<profile-name>
+#                                 --region=<region-name>
+#                                 <clusterid>
 #
 
 import argparse
