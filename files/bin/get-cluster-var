@@ -24,15 +24,21 @@ then
     exit 1
 fi
 
+if [[ "${CLUSTER:0:3}" =~ ^v[34]: ]]
+then
+  VERSION=${CLUSTER:0:2}
+  CLUSTER=${CLUSTER:3}
+fi
+
 V3_FILE="$HOME/.cache/sre/clusters/v3/$CLUSTER"
 V4_FILE="$HOME/.cache/sre/clusters/v4/$CLUSTER"
-if [[ -f $V3_FILE ]]
+if [[ "${VERSION:-v3}" == "v3" ]] && [[ -f $V3_FILE ]]
 then
   if [[ -n $VARNAME ]]
   then
     cat $V3_FILE | jq ".$VARNAME" | tr -d '"'
   fi
-elif [[ -f $V4_FILE ]]
+elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f $V4_FILE ]]
 then
   if [[ -n $VARNAME ]]
   then
