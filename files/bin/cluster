@@ -5,6 +5,12 @@ then
   export CLUSTERID=$1
 fi
 
+if [[ "${CLUSTERID:0:3}" =~ ^v[34]: ]]
+then
+  VERSION=${CLUSTERID:0:2}
+  CLUSTERID=${CLUSTERID:3}
+fi
+
 if [[ -z "$CLUSTERID" ]]
 then
   echo "Usage: source cluster <clusterid>" > /dev/stderr
@@ -19,19 +25,19 @@ else
       V3_CACHE_DIR="$HOME/.cache/sre/clusters/v3"
       V4_CACHE_DIR="$HOME/.cache/sre/clusters/v4"
       V4_CONFIG_DIR="$HOME/.config/sre/clusters/v4"
-      if [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]]
+      if [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]]
       then
-          export AWS_PROFILE=$(oo_account $CLUSTERID)
-          export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
-      elif [[ -f "$V4_CACHE_DIR/$CLUSTERID" ]]
+        export AWS_PROFILE=$(oo_account $CLUSTERID)
+        export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
+      elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f "$V4_CACHE_DIR/$CLUSTERID" ]]
       then
           mkdir -p "$V4_CONFIG_DIR"
           export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
-          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID region.id)
+          export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
           unset AWS_PROFILE
           if [[ ! -f "$KUBECONFIG" ]]
           then
-              ocm cluster login --username=$(whoami) $(get-cluster-var $CLUSTERID id)
+              ocm cluster login --username=$(whoami) $(get-cluster-var v4:$CLUSTERID id)
           fi
       else
           echo "Unknown cluster '$CLUSTERID'" > /dev/stderr
