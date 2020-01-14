@@ -36,7 +36,10 @@
       name: Daily cluster cache update
       special_time: daily
       user: "{{ ansible_user_id }}"
-      job: "{{ ansible_user_dir }}/bin/update-cluster-cache"
+      job: "{{ ansible_user_dir }}/bin/{{ item }}"
+    with_items:
+    - update-cluster-cache
+    - update-v4-cluster-cache
 
   # Powerline
 
