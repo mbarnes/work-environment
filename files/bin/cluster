@@ -39,10 +39,8 @@ else
           mkdir -p "$V4_CONFIG_DIR"
           export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
           export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
-          if [[ ! -f "$KUBECONFIG" ]]
-          then
-              ocm cluster login --username=$(whoami) $(get-cluster-var v4:$CLUSTERID id)
-          fi
+          ocm cluster login --username=$(whoami) $(get-cluster-var v4:$CLUSTERID id)
+          echo
       else
           echo "Unknown cluster '$CLUSTERID'" > /dev/stderr
       fi
