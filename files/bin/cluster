@@ -23,6 +23,10 @@ else
   unset AWS_DEFAULT_REGION
 
   case "$CLUSTERID" in
+    # Special name to reset the environment.
+    none)
+      unset CLUSTERID
+      ;;
     # Special handling for v3 test clusters.
     mbarnestest*)
       export AWS_PROFILE="opstest"
