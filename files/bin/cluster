@@ -36,7 +36,10 @@ else
       V3_CACHE_DIR="$HOME/.cache/sre/clusters/v3"
       V4_CACHE_DIR="$HOME/.cache/sre/clusters/v4"
       V4_CONFIG_DIR="$HOME/.config/sre/clusters/v4"
-      if [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]]
+      if [[ -z "$VERSION" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]] && [[ -f "$V4_CACHE_DIR/$CLUSTERID" ]]
+      then
+        echo "Please specify v3:$CLUSTERID or v4:$CLUSTERID" > /dev/stderr
+      elif [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]]
       then
         export AWS_PROFILE=$(oo_account $CLUSTERID)
         export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
