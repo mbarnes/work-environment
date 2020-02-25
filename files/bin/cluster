@@ -29,6 +29,7 @@ else
       ;;
     # Special handling for v3 test clusters.
     mbarnestest*)
+      VERSION=v3
       export AWS_PROFILE="opstest"
       export AWS_DEFAULT_REGION="us-east-2"
       ;;
@@ -41,10 +42,12 @@ else
         echo "Please specify v3:$CLUSTERID or v4:$CLUSTERID" > /dev/stderr
       elif [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]]
       then
+        VERSION=v3
         export AWS_PROFILE=$(oo_account $CLUSTERID)
         export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
       elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f "$V4_CACHE_DIR/$CLUSTERID" ]]
       then
+        VERSION=v4
         mkdir -p "$V4_CONFIG_DIR"
         export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
         if [[ "x$CLUSTER_NOLOGIN" == "x" ]]
@@ -77,5 +80,12 @@ fi
 
 if [[ -n "$TMUX" ]]
 then
-  tmux rename-window "$CLUSTERID"
+  if [[ -n "$VERSION" ]] && [[ -n "$CLUSTERID" ]]
+  then
+    tmux rename-window "$VERSION:$CLUSTERID"
+  else
+    tmux rename-window ""
+  fi
 fi
+
+unset VERSION
