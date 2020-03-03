@@ -1,0 +1,6 @@
+#!/bin/bash
+#
+# List v3 or v4 cluster names based on cached filenames.
+#
+
+ls -1 $HOME/.cache/sre/clusters/${1:-v3}

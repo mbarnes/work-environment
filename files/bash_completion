@@ -7,14 +7,14 @@ _list_clusters()
 _list_v3_clusters()
 {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local names=$(ls $HOME/.cache/sre/clusters/v3/)
+    local names=$(list-clusters v3)
     COMPREPLY+=( $(compgen -W "$names" -- $cur) )
 }
 
 _list_v4_clusters()
 {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local names=$(ls $HOME/.cache/sre/clusters/v4/)
+    local names=$(list-clusters v4)
     COMPREPLY+=( $(compgen -W "$names" -- $cur) )
 }
 
