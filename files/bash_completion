@@ -7,15 +7,23 @@ _list_clusters()
 _list_v3_clusters()
 {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local names=$(list-clusters v3)
-    COMPREPLY+=( $(compgen -W "$names" -- $cur) )
+    local names=( $(list-clusters v3) )
+    if [[ "${cur:0:3}" == "v3:" ]]
+    then
+      names=( "${names[@]/#/v3:}" )
+    fi
+    COMPREPLY+=( $(compgen -W "${names[*]}" -- $cur) )
 }
 
 _list_v4_clusters()
 {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local names=$(list-clusters v4)
-    COMPREPLY+=( $(compgen -W "$names" -- $cur) )
+    local names=( $(list-clusters v4) )
+    if [[ "${cur:0:3}" == "v4:" ]]
+    then
+      names=( "${names[@]/#/v4:}" )
+    fi
+    COMPREPLY+=( $(compgen -W "${names[*]}" -- $cur) )
 }
 
 _source_cluster()
@@ -31,6 +39,9 @@ _source_cluster()
         _minimal
     fi
 }
+
+# Despecialize the colon character
+COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
 
 complete -F _source_cluster source
 complete -F _list_v3_clusters lscluster oo_account oo_accountid oo_deployment oo_location oo_sublocation oo_test_cluster
