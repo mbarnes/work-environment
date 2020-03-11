@@ -3,4 +3,9 @@
 # List v3 or v4 cluster names based on cached filenames.
 #
 
-ls -1 $HOME/.cache/sre/clusters/${1:-v3}
+CLUSTER_DIR="$HOME/.cache/sre/clusters/${1:-v3}"
+
+if [[ -d "$CLUSTER_DIR" ]]
+then
+  ls -1 "$CLUSTER_DIR"
+fi
