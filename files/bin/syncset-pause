@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Applies the following annotation to a ClusterDeployment on the
+# hive-stage cluster for testing purposes:
+#
+#   hive.openshift.io/syncset-pause="true"
+#
+
+ANNOTATION=hive.openshift.io/syncset-pause="true"
+BASTION_HOSTNAME=bastion-nasa-1.ops.openshift.com
+SSH_COMMAND="ssh $BASTION_HOSTNAME ssh root@hive-stage-master -o StrictHostKeyChecking=no"
+
+CID=${1:-$CLUSTERID}
+if [[ -z "$CID" ]]
+then
+  echo "Usage: $0 <clusterid>" > /dev/stderr
+  exit 1
+fi
+
+NAMESPACE=$($SSH_COMMAND oc get clusterdeployment --all-namespaces --no-headers | grep "$CID" | head --lines=1 | awk '{ print $1 }')
+if [[ -z "$NAMESPACE" ]]
+then
+  echo "ClusterDeployment $CID not found on hive-stage" > /dev/stderr
+  exit 1
+fi
+
+$SSH_COMMAND oc annotate clusterdeployment $CID --namespace $NAMESPACE --overwrite $ANNOTATION
