@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# Prints a cluster's console URL and (if available) opens it in the
+# default browser.
+#
+
+CID=${1:-$CLUSTERID}
+if [[ -z $CID ]]
+then
+  echo "Usage: $0 [<clusterid>]"
+  exit 1
+fi
+
+CONSOLE=$(get-cluster-var v4:$CID console.url)
+BROWSER=$(xdg-mime query default x-scheme-handler/https)
+
+echo $CONSOLE
+if [[ -n "$BROWSER" ]]
+then
+  xdg-open $CONSOLE 2>/dev/null
+else
+  echo "(no https handler found)" 2>/dev/null
+fi
