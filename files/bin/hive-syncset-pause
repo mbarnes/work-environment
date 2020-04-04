@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# Applies the following annotation to a ClusterDeployment on the
+# hive-stage cluster for testing purposes:
+#
+#   hive.openshift.io/syncset-pause="true"
+#
+
+HIVE_CLUSTER=${HIVE_CLUSTER:-hive-stage}
+ANNOTATION=hive.openshift.io/syncset-pause="true"
+BASTION_HOSTNAME=bastion-nasa-1.ops.openshift.com
+SSH_COMMAND="ssh $BASTION_HOSTNAME ssh root@${HIVE_CLUSTER}-master -o StrictHostKeyChecking=no"
+
+CLUSTERID=${1:-$CLUSTERID}
+if [[ -z "$CLUSTERID" ]]
+then
+  echo "Usage: $0 <clusterid>" > /dev/stderr
+  exit 1
+fi
+
+NAMESPACE=$($SSH_COMMAND oc get clusterdeployment --all-namespaces --selector=api.openshift.com/name=$CLUSTERID --output json | jq --raw-output '.items[0].metadata.namespace')
+if [[ -z "$NAMESPACE" ]]
+then
+  echo "ClusterDeployment $CLUSTERID not found on $HIVE_CLUSTER" > /dev/stderr
+  exit 1
+fi
+
+$SSH_COMMAND oc annotate clusterdeployment $CLUSTERID --namespace $NAMESPACE --overwrite $ANNOTATION
