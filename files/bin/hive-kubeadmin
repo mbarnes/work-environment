@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# Retrieves the Kubernetes configuration for the cluster's admin user.
+#
+
+HIVE_CLUSTER=${HIVE_CLUSTER:-hive-stage}
+BASTION_HOSTNAME=bastion-nasa-1.ops.openshift.com
+SSH_COMMAND="ssh $BASTION_HOSTNAME ssh root@${HIVE_CLUSTER}-master -o StrictHostKeyChecking=no"
+
+CLUSTERID=${1:-$CLUSTERID}
+if [[ -z "$CLUSTERID" ]]
+then
+  echo "Usage: $0 <clusterid>" > /dev/stderr
+  exit 1
+fi
+
+NAMESPACE=$($SSH_COMMAND oc get clusterdeployment --all-namespaces --selector=api.openshift.com/name=$CLUSTERID --output json | jq --raw-output '.items[0].metadata.namespace')
+if [[ -z "$NAMESPACE" ]]
+then
+  echo "ClusterDeployment $CLUSTERID not found on $HIVE_CLUSTER" > /dev/stderr
+  exit 1
+fi
+
+$SSH_COMMAND oc get secret --namespace $NAMESPACE --selector=hive.openshift.io/secret-type=kubeconfig --output json | jq --raw-output '.items[0].data.kubeconfig' | base64 --decode
