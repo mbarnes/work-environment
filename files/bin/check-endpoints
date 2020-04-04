@@ -12,8 +12,8 @@
 #   $ check-endpoints
 #
 
-CID=${1:-$CLUSTERID}
-if [[ -z $CID ]]
+CLUSTERID=${1:-$CLUSTERID}
+if [[ -z $CLUSTERID ]]
 then
   echo "Usage: $0 <clusterid>" > /dev/stderr
   exit 1
@@ -21,7 +21,7 @@ fi
 
 function check_route {
   ENDPOINT=$1
-  URL="https://$ENDPOINT.$CID.openshift.com"
+  URL="https://$ENDPOINT.$CLUSTERID.openshift.com"
   echo "Checking $URL"
   curl -v $URL 2>&1 | egrep "subject|expire"
   echo
