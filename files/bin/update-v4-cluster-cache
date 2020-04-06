@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 
 CACHE_DIR = '~/.cache/sre/clusters'
+CONFIG_DIR = '~/.config/sre/clusters/v4'
 CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters'
 OCM_COMMAND_DEFAULT = os.path.expanduser('~/go/bin/ocm')
 
@@ -26,22 +27,34 @@ def get_managed_clusters(ocm_command):
     json_result = subprocess.check_output([
         ocm_command, 'get', CLUSTERS_API_PATH,
         '--parameter=search=managed=\'true\''])
-    return json.loads(json_result).get('items', [])
+    cluster_list = json.loads(json_result).get('items', [])
+    return {cluster['name']: cluster for cluster in cluster_list}
 
 
 def main(args):
-    basedir = os.path.expanduser(CACHE_DIR)
-    safe_mkdir(basedir)
-    tempdir = tempfile.mkdtemp(dir=basedir)
-    for cluster in get_managed_clusters(args.ocm_command):
-        filename = os.path.join(tempdir, cluster['name'])
+    managed_clusters = get_managed_clusters(args.ocm_command)
+
+    # Replace the cache directory
+    cache_basedir = os.path.expanduser(CACHE_DIR)
+    safe_mkdir(cache_basedir)
+    tempdir = tempfile.mkdtemp(dir=cache_basedir)
+    for cluster_name, cluster_data in managed_clusters.items():
+        filename = os.path.join(tempdir, cluster_name)
         with open(filename, 'w') as cache_file:
-            content = json.dumps(cluster, indent=2)
+            content = json.dumps(cluster_data, indent=2)
             cache_file.write(content + '\n')
-    fulldir = os.path.join(basedir, 'v4')
-    if os.path.isdir(fulldir):
-        shutil.rmtree(fulldir)
-    os.rename(tempdir, fulldir)
+    cache_fulldir = os.path.join(cache_basedir, 'v4')
+    if os.path.isdir(cache_fulldir):
+        shutil.rmtree(cache_fulldir)
+    os.rename(tempdir, cache_fulldir)
+
+    # Clean up the config directory
+    config_basedir = os.path.expanduser(CONFIG_DIR)
+    safe_mkdir(config_basedir)
+    for dirpath, dirnames, filenames in os.walk(config_basedir):
+        for cluster_name in filenames:
+            if cluster_name not in managed_clusters:
+                os.unlink(os.path.join(dirpath, cluster_name))
 
 
 if __name__ == '__main__':
