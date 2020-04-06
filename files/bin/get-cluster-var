@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Retrieves a cluster variable from locally cached files created
-# by ~/bin/update-cluster-cache.
+# by ~/bin/update-v3-cluster-cache.
 #
 # This command is generally not called directly, but through one
 # of the "oo" commands (oo_account, oo_environment, etc).
