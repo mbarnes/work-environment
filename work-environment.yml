@@ -33,13 +33,20 @@
 
   - name: Schedule daily cluster cache update
     cron:
-      name: Daily cluster cache update
+      name: "Daily {{ item }} cluster cache update"
       special_time: daily
       user: "{{ ansible_user_id }}"
-      job: "{{ ansible_user_dir }}/bin/{{ item }}"
+      job: "{{ ansible_user_dir }}/bin/update-{{ item }}-cluster-cache"
     with_items:
-    - update-v3-cluster-cache
-    - update-v4-cluster-cache
+    - v3
+    - v4
+
+  # Install local tools
+
+  - name: Install ocm tool from github
+    command: go get -u github.com/openshift-online/ocm-cli/cmd/ocm
+    args:
+      creates: "{{ ansible_user_dir }}/go/bin/ocm"
 
   # Powerline
 
