@@ -34,21 +34,25 @@ else
       export AWS_DEFAULT_REGION="us-east-2"
       ;;
     *)
-      V3_CACHE_DIR="$HOME/.cache/sre/clusters/v3"
-      V4_CACHE_DIR="$HOME/.cache/sre/clusters/v4"
+      V3_CACHE_FILE=$(realpath $HOME/.cache/sre/clusters/v3/$CLUSTERID)
+      V4_CACHE_FILE=$(realpath $HOME/.cache/sre/clusters/v4/$CLUSTERID)
       V4_CONFIG_DIR="$HOME/.config/sre/clusters/v4"
-      if [[ -z "$VERSION" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]] && [[ -f "$V4_CACHE_DIR/$CLUSTERID" ]]
+
+      if [[ -z "$VERSION" ]] && [[ -f "$V3_CACHE_FILE" ]] && [[ -f "$V4_CACHE_FILE" ]]
       then
+        CLUSTERID=$(basename $V3_CACHE_FILE)
         echo "Please specify v3:$CLUSTERID or v4:$CLUSTERID" > /dev/stderr
-      elif [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_DIR/$CLUSTERID" ]]
+      elif [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_FILE" ]]
       then
         VERSION=v3
+        CLUSTERID=$(basename $V3_CACHE_FILE)
         export AWS_PROFILE=$(oo_account $CLUSTERID)
         export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
-      elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f "$V4_CACHE_DIR/$CLUSTERID" ]]
+      elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f "$V4_CACHE_FILE" ]]
       then
         VERSION=v4
         mkdir -p "$V4_CONFIG_DIR"
+        CLUSTERID=$(basename $V4_CACHE_FILE)
         export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
         export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
         if [[ -f "$KUBECONFIG" ]]
