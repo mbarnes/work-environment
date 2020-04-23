@@ -27,8 +27,24 @@ def get_managed_clusters(ocm_command):
     json_result = subprocess.check_output([
         ocm_command, 'get', CLUSTERS_API_PATH,
         '--parameter=search=managed=\'true\''])
-    cluster_list = json.loads(json_result).get('items', [])
-    return {cluster['name']: cluster for cluster in cluster_list}
+
+    # v4 clusters are identified by an alphanumeric ID and can
+    # have identical names. Disambiguate such cases by tacking
+    # on the router shard from the base domain.
+    clusters_by_name = {}
+    managed_clusters = {}
+    for cluster in json.loads(json_result).get('items', []):
+        clusters_by_name.setdefault(cluster['name'], []).append(cluster)
+    for cluster_name, cluster_list in clusters_by_name.items():
+        if len(cluster_list) == 1:
+            managed_clusters[cluster_name] = cluster_list[0]
+        else:
+            for cluster in cluster_list:
+                router_shard = cluster['dns']['base_domain'].split('.')[0]
+                cluster_name_shard = cluster_name + '.' + router_shard
+                managed_clusters[cluster_name_shard] = cluster
+
+    return managed_clusters
 
 
 def main(args):
