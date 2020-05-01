@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 CACHE_DIR = '~/.cache/sre/clusters'
@@ -24,16 +25,29 @@ def safe_mkdir(path, mode=0777):
 
 
 def get_managed_clusters(ocm_command):
-    json_result = subprocess.check_output([
-        ocm_command, 'get', CLUSTERS_API_PATH,
-        '--parameter=search=managed=\'true\''])
+    page=1
+    items=[]
+
+    # Update total after we get the first result.
+    # This just ensures we make at least one pass.
+    total=sys.maxsize
+
+    while len(items) < total:
+        ocm_output = subprocess.check_output([
+            ocm_command, 'get', CLUSTERS_API_PATH,
+            '--parameter=search=managed=\'true\'',
+            '--parameter=page=%d' % page])
+        json_result = json.loads(ocm_output)
+        total = json_result['total']
+        items.extend(json_result['items'])
+        page += 1
 
     # v4 clusters are identified by an alphanumeric ID and can
     # have identical names. Disambiguate such cases by tacking
     # on the router shard from the base domain.
     clusters_by_name = {}
     managed_clusters = {}
-    for cluster in json.loads(json_result).get('items', []):
+    for cluster in items:
         clusters_by_name.setdefault(cluster['name'], []).append(cluster)
     for cluster_name, cluster_list in clusters_by_name.items():
         if len(cluster_list) == 1:
