@@ -34,8 +34,8 @@ else
       export AWS_DEFAULT_REGION="us-east-2"
       ;;
     *)
-      V3_CACHE_FILE=$(realpath $HOME/.cache/sre/clusters/v3/$CLUSTERID)
-      V4_CACHE_FILE=$(realpath $HOME/.cache/sre/clusters/v4/$CLUSTERID)
+      V3_CACHE_FILE=$(realpath --canonicalize-missing $HOME/.cache/sre/clusters/v3/$CLUSTERID)
+      V4_CACHE_FILE=$(realpath --canonicalize-missing $HOME/.cache/sre/clusters/v4/$CLUSTERID)
       V4_CONFIG_DIR="$HOME/.config/sre/clusters/v4"
 
       if [[ -z "$VERSION" ]] && [[ -f "$V3_CACHE_FILE" ]] && [[ -f "$V4_CACHE_FILE" ]]
