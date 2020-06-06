@@ -54,6 +54,7 @@ else
         mkdir -p "$V4_CONFIG_DIR"
         CLUSTERID=$(basename $V4_CACHE_FILE)
         export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
+        export OCM_CLUSTERID=$(get-cluster-var v4:$CLUSTERID id)
         export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
         if [[ -f "$KUBECONFIG" ]]
         then
@@ -75,6 +76,7 @@ else
   elif [[ -n "$KUBECONFIG" ]]
   then
     echo "         CLUSTERID : $CLUSTERID"
+    echo "     OCM_CLUSTERID : $OCM_CLUSTERID"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
 
     if [[ ! -f "$KUBECONFIG" ]]
@@ -109,6 +111,10 @@ then
         if [[ -n "$KUBECONFIG" ]]
         then
             echo "export KUBECONFIG=$KUBECONFIG" >> $CLUSTER_FILE
+        fi
+        if [[ -n "$OCM_CLUSTERID" ]]
+        then
+            echo "export OCM_CLUSTERID=$OCM_CLUSTERID" >> $CLUSTER_FILE
         fi
     fi
     tmux rename-window "$VERSION:$CLUSTERID"
