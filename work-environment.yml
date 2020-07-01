@@ -18,6 +18,11 @@
 
   # Cached cluster information
 
+  - name: Copy tmux hook script
+    copy:
+      src: tmux.hooks
+      dest: "{{ ansible_user_dir }}/.cache/sre/"
+
   - name: Create cluster cache directories
     file:
       path: "{{ ansible_user_dir }}/.cache/sre/clusters/{{ item }}"

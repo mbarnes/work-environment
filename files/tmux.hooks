@@ -1,0 +1,38 @@
+#!/bin/bash
+HOOK=$1
+SESSION=$(tmux display-message -p "#{session_id}" | tr -d '$')
+WINDOW=$(tmux display-message -p "#{window_id}" | tr -d '@')
+RUNTIME_DIR="$XDG_RUNTIME_DIR/tmux"
+
+case $HOOK in
+    session-created)
+        mkdir --parents "$RUNTIME_DIR/$SESSION"
+        ;;
+    session-closed)
+        if [ -d $RUNTIME_DIR ]
+        then
+            for session_id in $(ls $RUNTIME_DIR/)
+            do
+              if ! $(tmux has-session -t \$$session_id)
+              then
+                  rm --recursive $RUNTIME_DIR/$session_id
+              fi
+            done
+        fi
+        ;;
+    window-linked)
+        mkdir --parents "$RUNTIME_DIR/$SESSION/$WINDOW"
+        ;;
+    window-unlinked)
+        if [ -d $RUNTIME_DIR/$SESSION ]
+        then
+            for window_id in $(ls $RUNTIME_DIR/$SESSION/)
+            do
+                if ! $(tmux list-windows -F "#{window_id}" | grep --quiet "^@$window_id")
+                then
+                    rm --recursive $RUNTIME_DIR/$SESSION/$window_id
+                fi
+            done
+        fi
+        ;;
+esac
