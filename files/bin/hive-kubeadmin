@@ -3,22 +3,60 @@
 # Retrieves the Kubernetes configuration for the cluster's admin user.
 #
 
-HIVE_CLUSTER=${HIVE_CLUSTER:-hive-stage}
-BASTION_HOSTNAME=bastion-nasa-1.ops.openshift.com
-SSH_COMMAND="ssh $BASTION_HOSTNAME ssh root@${HIVE_CLUSTER}-master -o StrictHostKeyChecking=no"
+function get-hive-cluster {
+  CLOUD_PROVIDER=$(ocm get /api/clusters_mgmt/v1/clusters/$1 | jq --raw-output '.cloud_provider.id')
 
-CLUSTERID=${1:-$CLUSTERID}
-if [[ -z "$CLUSTERID" ]]
+  case $CLOUD_PROVIDER
+  in
+    aws)
+      JSON_QUERY=".aws_account_operator_config.server"
+      ;;
+    gcp)
+      JSON_QUERY=".gcp_account_operator_config.server"
+      ;;
+    *)
+      echo "Unknown cloud provider: $CLOUD_PROVIDER" > /dev/stderr
+      exit 1
+  esac
+
+  ocm get /api/clusters_mgmt/v1/clusters/$1/provision_shard | \
+    jq --raw-output $JSON_QUERY | \
+    awk '{ if (match($0, /^https:\/\/api\.([-a-z0-9]+)\./, groups)) print groups[1] }'
+}
+
+OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+if [[ -z "$OCM_CLUSTERID" ]]
 then
-  echo "Usage: $0 <clusterid>" > /dev/stderr
+  echo "Usage: $0 <ocm-clusterid> [hive-cluster-name]" > /dev/stderr
   exit 1
 fi
+HIVE_CLUSTER=${2:-$(get-hive-cluster $OCM_CLUSTERID)}
 
-NAMESPACE=$($SSH_COMMAND oc get clusterdeployment --all-namespaces --selector=api.openshift.com/name=$CLUSTERID --output json | jq --raw-output '.items[0].metadata.namespace')
-if [[ -z "$NAMESPACE" ]]
-then
-  echo "ClusterDeployment $CLUSTERID not found on $HIVE_CLUSTER" > /dev/stderr
-  exit 1
-fi
+case $(hostname)
+in
+  bastion-nasa-*.ops.openshift.com)
+    case $HIVE_CLUSTER
+    in
+      # Hive clusters hosted on OSDv3
+      hive-integration|hive-production|hive-stage)
+        OC="ssh root@${HIVE_CLUSTER}-master -o StrictHostKeyChecking=no oc"
+        ;;
+      *)
+        OC="oc --config=$HOME/.config/sre/clusters/v4/$HIVE_CLUSTER"
+        ;;
+    esac
 
-$SSH_COMMAND oc get secret --namespace $NAMESPACE --selector=hive.openshift.io/secret-type=kubeconfig --output json | jq --raw-output '.items[0].data.kubeconfig' | base64 --decode
+    HIVE_NAMESPACE=$($OC get clusterdeployment --all-namespaces --selector=api.openshift.com/id=$OCM_CLUSTERID --output json | jq --raw-output '.items[0].metadata.namespace')
+    if [[ "$HIVE_NAMESPACE" == "null" ]]
+    then
+      echo "ClusterDeployment $OCM_CLUSTERID not found on $HIVE_CLUSTER" > /dev/stderr
+      exit 1
+    fi
+
+    $OC get secret --namespace $HIVE_NAMESPACE --selector=hive.openshift.io/secret-type=kubeconfig --output json | jq --raw-output '.items[0].data.kubeconfig' | base64 --decode
+    ;;
+  *)
+    # Defer to the bastion host, which can access production Hive clusters.
+    ssh bastion-nasa-1.ops.openshift.com bin/$(basename $0) $OCM_CLUSTERID $HIVE_CLUSTER
+    ;;
+esac
