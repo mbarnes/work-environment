@@ -44,4 +44,4 @@ _source_cluster()
 COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
 
 complete -F _source_cluster source
-complete -F _list_v3_clusters lscluster oo_account oo_accountid oo_deployment oo_location oo_sublocation oo_test_cluster
+complete -F _list_v3_clusters lscluster oo_account oo_accountid oo_cluster_tier oo_deployment oo_location oo_sublocation oo_test_cluster
