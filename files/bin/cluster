@@ -56,15 +56,12 @@ else
         export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
         export OCM_CLUSTERID=$(get-cluster-var v4:$CLUSTERID id)
         export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
-        if [[ -f "$KUBECONFIG" ]]
+        API_LISTENING=$(get-cluster-var $CLUSTERID api.listening)
+        if [[ -f "$KUBECONFIG" ]] && [[ "$API_LISTENING" != "internal" ]]
         then
           # See https://github.com/openshift/ops-sop/blob/master/v4/howto/aws.md
           export AWS_ACCESS_KEY_ID=$(oc get secrets -n kube-system aws-creds -o json | jq -r '.data.aws_access_key_id' | base64 -d)
           export AWS_SECRET_ACCESS_KEY=$(oc get secrets -n kube-system aws-creds -o json | jq -r '.data.aws_secret_access_key' | base64 -d)
-        fi
-        if [[ $(get-cluster-var $CLUSTERID api.listening) == "internal" ]]
-        then
-          alias oc="HTTPS_PROXY=socks5://localhost:1080 oc"
         fi
       else
         echo "Unknown cluster '$CLUSTERID'" > /dev/stderr
@@ -83,10 +80,10 @@ else
     echo "     OCM_CLUSTERID : $OCM_CLUSTERID"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
 
-    if alias oc >& /dev/null
+    if [[ "$API_LISTENING" == "internal" ]]
     then
       echo
-      echo "API service is internal ($(alias oc))"
+      echo "API service is internal (use 'ocm cluster tunnel')"
     fi
 
     if [[ ! -f "$KUBECONFIG" ]]
@@ -125,10 +122,6 @@ then
         if [[ -n "$OCM_CLUSTERID" ]]
         then
             echo "export OCM_CLUSTERID=$OCM_CLUSTERID" >> $CLUSTER_FILE
-        fi
-        if alias oc >& /dev/null
-        then
-            echo $(alias oc) >> $CLUSTER_FILE
         fi
     fi
     tmux rename-window "$VERSION:$CLUSTERID"
