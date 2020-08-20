@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+# Attempts to establish a local SOCKS5 proxy on a unique port
+# for the specified cluster.
+#
+# Usage: sshproxy [OCM_CLUSTERID]
+#
+
+function calc-proxy-port {
+  # ephemeral port range
+  PORT_LO=49152
+  PORT_HI=65535
+  sum=0
+  bytes=$(echo -n $1 | od --address-radix=n --output-duplicates --width=64 --format u1)
+  for b in $bytes; do (( sum += b )); done
+  port=$(( sum % (PORT_HI - PORT_LO) + PORT_LO ))
+  # If the port is in use, increment until we find an available port.
+  while ss --all --ipv4 --numeric | awk '/127.0.0.1/ { print $5 }' | grep --quiet $port
+  do
+    # Port is in use; try the next one.
+    port=$(( sum++ % (PORT_HI - PORT_LO) + PORT_LO ))
+  done
+  echo $port
+}
+
+OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+if [[ -z "$OCM_CLUSTERID" ]]
+then
+  echo "Usage: $0 <ocm-clusterid>"
+  exit 1
+fi
+
+case $(hostname) in
+  bastion-*.ops.openshift.com)
+    JUMPHOST_OPTION=""
+    ;;
+  *)
+    JUMPHOST_OPTION="-J bastion-nasa-1.ops.openshift.com"
+    ;;
+esac
+
+PROXY_PORT=$(calc-proxy-port $OCM_CLUSTERID)
+REMOTE_HOST=$(ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID | \
+    jq --raw-output '.api.url' | \
+    gawk 'match($0, /https:\/\/api(\..+\.com)/, ary) { print "rh-ssh" ary[1] }')
+echo "HTTPS_PROXY=socks5://localhost:$PROXY_PORT"
+ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION sre-user@$REMOTE_HOST
