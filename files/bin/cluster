@@ -83,7 +83,14 @@ else
     if [[ "$API_LISTENING" == "internal" ]]
     then
       echo
-      echo "API service is internal (use 'ocm cluster tunnel')"
+      case $(hostname) in
+        bastion-*.ops.openshift.com)
+          echo "API service is internal (use 'sshproxy')"
+          ;;
+        *)
+          echo "API service is internal (use 'ocm cluster tunnel')"
+          ;;
+      esac
     fi
 
     if [[ ! -f "$KUBECONFIG" ]]
