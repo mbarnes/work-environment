@@ -11,10 +11,11 @@ function calc-proxy-port {
   PORT_LO=49152
   PORT_HI=65535
   sum=0
-  bytes=$(echo -n $1 | od --address-radix=n --output-duplicates --width=64 --format u1)
+  # Adding whoami tries to ensure different users
+  # get different proxy ports for the same cluster.
+  bytes=$(echo -n $(whoami) $1 | od --address-radix=n --output-duplicates --width=64 --format u1)
   for b in $bytes; do (( sum += b )); done
   port=$(( sum % (PORT_HI - PORT_LO) + PORT_LO ))
-  # If the port is in use, increment until we find an available port.
   while ss --all --ipv4 --numeric | awk '/127.0.0.1/ { print $5 }' | grep --quiet $port
   do
     # Port is in use; try the next one.
