@@ -1,33 +1,18 @@
 #!/bin/bash
 #
 # Attempts to establish a local SOCKS5 proxy on a unique port
-# for the specified cluster.
+# for the specified cluster.  Optionally, the port number can
+# be specified explicitly.
 #
-# Usage: sshproxy [OCM_CLUSTERID]
+# Usage: sshproxy [OCM_CLUSTERID] [PORT]
 #
 
-function calc-proxy-port {
-  # ephemeral port range
-  PORT_LO=49152
-  PORT_HI=65535
-  sum=0
-  # Adding whoami tries to ensure different users
-  # get different proxy ports for the same cluster.
-  bytes=$(echo -n $(whoami) $1 | od --address-radix=n --output-duplicates --width=64 --format u1)
-  for b in $bytes; do (( sum += b )); done
-  port=$(( sum % (PORT_HI - PORT_LO) + PORT_LO ))
-  while ss --all --ipv4 --numeric | awk '/127.0.0.1/ { print $5 }' | grep --quiet $port
-  do
-    # Port is in use; try the next one.
-    port=$(( sum++ % (PORT_HI - PORT_LO) + PORT_LO ))
-  done
-  echo $port
-}
+set -euo pipefail
 
 OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
 if [[ -z "$OCM_CLUSTERID" ]]
 then
-  echo "Usage: $0 <ocm-clusterid>"
+  echo "Usage: $0 <ocm-clusterid> [<port>]" > /dev/stderr
   exit 1
 fi
 
@@ -40,7 +25,7 @@ case $(hostname) in
     ;;
 esac
 
-PROXY_PORT=$(calc-proxy-port $OCM_CLUSTERID)
+PROXY_PORT=${2:-$(find-proxy-port $OCM_CLUSTERID)}
 REMOTE_HOST=$(ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID | \
     jq --raw-output '.api.url' | \
     gawk 'match($0, /https:\/\/api(\..+\.com)/, ary) { print "rh-ssh" ary[1] }')
