@@ -26,8 +26,5 @@ case $(hostname) in
 esac
 
 PROXY_PORT=${2:-$(find-proxy-port $OCM_CLUSTERID)}
-REMOTE_HOST=$(ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID | \
-    jq --raw-output '.api.url' | \
-    gawk 'match($0, /https:\/\/api(\..+\.com)/, ary) { print "rh-ssh" ary[1] }')
 echo "HTTPS_PROXY=socks5://localhost:$PROXY_PORT"
-ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION sre-user@$REMOTE_HOST
+ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION $(sshaddress $OCM_CLUSTERID)

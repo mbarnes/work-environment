@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# Prints the SSH "user@hostname" for the given cluster ID.
+#
+# Usage: sshaddress [OCM_CLUSTERID]
+#
+
+set -euo pipefail
+
+OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+if [[ -z "$OCM_CLUSTERID" ]]
+then
+  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
+  exit 1
+fi
+
+ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID | \
+  jq --raw-output '["sre-user@rh-ssh", .name, .dns.base_domain] | join(".")'
