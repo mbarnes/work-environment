@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# If TMUX is set, prints the cluster state file path for the current
+# session ID and window ID.
+#
+
+if [[ -n "$TMUX" ]]
+then
+  echo $(tmux display-message -p "$XDG_RUNTIME_DIR/tmux/#{session_id}/#{window_id}/cluster" | tr -d '$@')
+fi
