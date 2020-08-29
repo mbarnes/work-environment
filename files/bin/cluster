@@ -88,7 +88,7 @@ else
           echo "API service is internal (use 'sshproxy')"
           ;;
         *)
-          echo "API service is internal (use 'ocm cluster tunnel')"
+          echo "API service is internal (use 'sshproxy' or 'ocm tunnel')"
           ;;
       esac
     fi
