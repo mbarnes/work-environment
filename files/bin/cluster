@@ -56,7 +56,7 @@ else
         export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
         export OCM_CLUSTERID=$(get-cluster-var v4:$CLUSTERID id)
         export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
-        API_LISTENING=$(get-cluster-var $CLUSTERID api.listening)
+        API_LISTENING=$(get-cluster-var v4:$CLUSTERID api.listening)
         if [[ -f "$KUBECONFIG" ]] && [[ "$API_LISTENING" != "internal" ]]
         then
           # See https://github.com/openshift/ops-sop/blob/master/v4/howto/aws.md
