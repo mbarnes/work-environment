@@ -32,9 +32,9 @@ echo "HTTPS_PROXY=$PROXY_URL"
 TMUX_CLUSTER_FILE=$(tmux-cluster-file)
 if [[ -n "$TMUX_CLUSTER_FILE" ]]
 then
-  sed --in-place '/^alias oc=/d' $TMUX_CLUSTER_FILE
-  trap "sed --in-place '/^alias oc=/d' $TMUX_CLUSTER_FILE" exit
-  echo "alias oc=\"HTTPS_PROXY=$PROXY_URL oc\"" >> $TMUX_CLUSTER_FILE
+  sed --in-place '/^oc() {/d' $TMUX_CLUSTER_FILE
+  trap "sed --in-place '/^oc() {/d' $TMUX_CLUSTER_FILE" exit
+  echo "oc() { HTTPS_PROXY=$PROXY_URL $(which oc) \$@; }; export -f oc" >> $TMUX_CLUSTER_FILE
 fi
 
 ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION $(sshaddress $OCM_CLUSTERID)
