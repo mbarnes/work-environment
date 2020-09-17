@@ -96,7 +96,7 @@ else
     if [[ ! -f "$KUBECONFIG" ]]
     then
       echo
-      echo "Run \"console\" to obtain a login token."
+      echo "Run \"token\" to obtain a login token."
     fi
   fi
 fi
