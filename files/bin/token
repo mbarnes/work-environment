@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# Prints a cluster's token URL and (if available) opens it in the
+# default browser.
+#
+
+CLUSTERID=${1:-$CLUSTERID}
+if [[ -z $CLUSTERID ]]
+then
+  echo "Usage: $0 [<clusterid>]"
+  exit 1
+fi
+
+GETTOKEN="$(get-cluster-var v4:$CLUSTERID console.url | sed 's/console-openshift-console/oauth-openshift/')/oauth/token/request"
+BROWSER=$(xdg-mime query default x-scheme-handler/https)
+
+echo $GETTOKEN
+if [[ -n "$BROWSER" ]]
+then
+  xdg-open $GETTOKEN 2>/dev/null
+else
+  echo "(no https handler found)" >/dev/stderr
+fi
