@@ -19,5 +19,5 @@ if [[ -n "$BROWSER" ]]
 then
   xdg-open $CONSOLE 2>/dev/null
 else
-  echo "(no https handler found)" 2>/dev/null
+  echo "(no https handler found)" >/dev/stderr
 fi
