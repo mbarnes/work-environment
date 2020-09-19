@@ -71,8 +71,12 @@ if __name__ == '__main__':
         incident_list = pypd.Incident.find(**query_params)
 
         for incident in incident_list:
+            service = incident.json['service']['summary']
+            if 'openshiftapps' in service:
+                # Just show the cluster name
+                service = service[:service.find('.')]
             summary = incident.json['summary']
-            print time.asctime(), 'ACK:', summary
+            print time.asctime(), 'ACK:', service, summary
             incident.acknowledge(email)
 
         time.sleep(interval_secs)
