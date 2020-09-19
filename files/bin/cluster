@@ -88,11 +88,8 @@ else
       esac
     fi
 
-    if [[ ! -f "$KUBECONFIG" ]]
-    then
-      echo
-      echo "Run \"token\" to obtain a login token."
-    fi
+    echo
+    echo "Run \"token\" to obtain a login token."
   fi
 fi
 
