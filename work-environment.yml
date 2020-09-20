@@ -34,6 +34,7 @@
     file:
       path: "{{ ansible_user_dir }}/.cache/sre/clusters/{{ item }}"
       state: directory
+    when: item == 'v4' or install_v3_files is defined
     with_items:
     - v3
     - v4
@@ -49,6 +50,7 @@
       special_time: daily
       user: "{{ ansible_user_id }}"
       job: "{{ ansible_user_dir }}/bin/update-{{ item }}-cluster-cache"
+    when: item == 'v4' or install_v3_files is defined
     with_items:
     - v3
     - v4
