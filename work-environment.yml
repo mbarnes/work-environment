@@ -64,30 +64,34 @@
 
   # Powerline
 
-  - name: Add virtualenv binaries to PATH
-    lineinfile:
-      path: "{{ ansible_user_dir }}/.bashrc"
-      line: "export PATH=\"$PATH:{{ virtualenv_root }}/bin\""
-      create: yes
+  - name: Set up Powerline
+    when: "'bastions' in group_names"
+    block:
 
-  - name: Install powerline-status pip package
-    pip:
-      name: powerline-status
-      virtualenv: "{{ virtualenv_root }}"
+    - name: Add virtualenv binaries to PATH
+      lineinfile:
+        path: "{{ ansible_user_dir }}/.bashrc"
+        line: "export PATH=\"$PATH:{{ virtualenv_root }}/bin\""
+        create: yes
 
-  - name: Syncrhonize powerline configuration
-    synchronize:
-      src: config/powerline
-      dest: "{{ ansible_user_dir }}/.config"
+    - name: Install powerline-status pip package
+      pip:
+        name: powerline-status
+        virtualenv: "{{ virtualenv_root }}"
 
-  - name: Source powerline when starting bash
-    lineinfile:
-      path: "{{ ansible_user_dir }}/.bashrc"
-      line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/bash/powerline.sh"
-      create: yes
+    - name: Synchronize powerline configuration
+      synchronize:
+        src: config/powerline
+        dest: "{{ ansible_user_dir }}/.config"
 
-  - name: Source powerline when starting tmux
-    lineinfile:
-      path: "{{ ansible_user_dir }}/.tmux.conf"
-      line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/tmux/powerline.conf"
-      create: yes
+    - name: Source powerline when starting bash
+      lineinfile:
+        path: "{{ ansible_user_dir }}/.bashrc"
+        line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/bash/powerline.sh"
+        create: yes
+
+    - name: Source powerline when starting tmux
+      lineinfile:
+        path: "{{ ansible_user_dir }}/.tmux.conf"
+        line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/tmux/powerline.conf"
+        create: yes
