@@ -9,10 +9,43 @@ import subprocess
 import sys
 import tempfile
 
+try:
+    from shutil import which
+except ImportError:
+    # Simplified shutil.which from Python 3
+    def which(cmd):
+        # Check that a given file can be accessed with the correct mode.
+        def _access_check(fn):
+            mode = os.F_OK | os.X_OK
+            return os.path.exists(fn) and os.access(fn, mode)
+
+        # If we're given a path with a directory part, look it up directly rather
+        # then referring to PATH directories. This includes checking relative to the
+        # current directory, e.g. ./script
+        if os.path.dirname(cmd):
+            if _access_check(cmd):
+                return cmd
+            return None
+
+        path = os.environ.get("PATH", os.defpath).split(os.pathsep)
+        files = [cmd]
+
+        seen = set()
+        for dir in path:
+            normdir = os.path.normcase(dir)
+            if not normdir in seen:
+                seen.add(normdir)
+                for thefile in files:
+                    name = os.path.join(dir, thefile)
+                    if _access_check(name):
+                        return name
+        return None
+
+
 CACHE_DIR = '~/.cache/sre/clusters'
 CONFIG_DIR = '~/.config/sre/clusters/v4'
 CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters'
-OCM_COMMAND_DEFAULT = os.path.expanduser('~/go/bin/ocm')
+OCM_COMMAND_DEFAULT = which('ocm')
 
 def safe_mkdir(path, mode=0777):
     try:
