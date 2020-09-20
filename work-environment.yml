@@ -80,6 +80,11 @@
       src: bash_profile/
       dest: "{{ ansible_user_dir }}/{{ bash_profile_d }}/"
 
+  - name: Synchronize bash_completion directory
+    synchronize:
+      src: bash_completion/
+      dest: "{{ ansible_user_dir }}/{{ bash_completion_d }}/"
+
   - name: Schedule daily cluster cache update
     cron:
       name: "Daily {{ item }} cluster cache update"
