@@ -96,12 +96,38 @@
     - v3
     - v4
 
-  # Install local tools
+  # Install OpenShift client tools
 
-  - name: Install ocm tool from github
-    command: go get -u github.com/openshift-online/ocm-cli/cmd/ocm
-    args:
-      creates: "{{ ansible_user_dir }}/{{ bindir }}/ocm"
+  - name: Download OpenShift v4 client
+    unarchive:
+      remote_src: yes
+      src: https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/linux/oc.tar.gz
+      dest: "{{ ansible_user_dir }}/{{ bindir }}"
+
+  - name: Generate bash completion code for OpenShift v4 client
+    shell:
+      cmd: "{{ ansible_user_dir }}/{{ bindir }}/oc completion bash > {{ ansible_user_dir }}/{{ bash_completion_d }}/oc"
+
+  - name: Look up latest OpenShift Cluster Manager release
+    uri:
+      url: https://api.github.com/repos/openshift-online/ocm-cli/releases/latest
+    register: ocm_release_latest
+
+  - name: Determine OpenShift Cluster Manager download URL
+    set_fact:
+      ocm_download_url: "{{ item.browser_download_url }}"
+    when: item.name == "ocm-linux-amd64"
+    loop: "{{ ocm_release_latest.json.assets }}"
+
+  - name: Download OpenShift Cluster Manager client
+    get_url:
+      url: "{{ ocm_download_url }}"
+      dest: "{{ ansible_user_dir }}/{{ bindir }}/ocm"
+      mode: u=rwx,g=rx,o=rx
+
+  - name: Generate bash completion code for OpenShift Cluster Manager client
+    shell:
+      cmd: "{{ ansible_user_dir }}/{{ bindir }}/ocm completion bash > {{ ansible_user_dir }}/{{ bash_completion_d }}/ocm"
 
   # Powerline
 
