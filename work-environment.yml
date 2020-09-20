@@ -7,6 +7,9 @@
 #
 - hosts: all
   vars:
+    # Use this for blockinfile tasks
+    blockinfile_marker: "# (work-environment) {mark} ANSIBLE MANAGED BLOCK"
+
     virtualenv_root: "{{ ansible_user_dir }}/env"
   tasks:
 
@@ -39,10 +42,33 @@
     - v3
     - v4
 
-  - name: Copy bash completion
-    copy:
-      src: bash_completion
-      dest: "{{ ansible_user_dir }}/.bash_completion"
+  - name: Create user directories
+    file:
+      path: "{{ ansible_user_dir }}/{{ item }}"
+      state: directory
+    loop:
+    - "{{ bash_aliases_d }}"
+    - "{{ bash_profile_d }}"
+    - "{{ bash_completion_d }}"
+
+  - name: Edit .bashrc script
+    blockinfile:
+      path: "{{ ansible_user_dir }}/.bashrc"
+      block: "{{ lookup('template', 'bashrc.j2') }}"
+      marker: "{{ blockinfile_marker }}"
+
+  - name: Edit profile script
+    blockinfile:
+      path: "{{ ansible_user_dir }}/{{ profile }}"
+      block: "{{ lookup('template', 'profile.j2') }}"
+      marker: "{{ blockinfile_marker }}"
+
+  - name: Edit bash_completion script
+    blockinfile:
+      path: "{{ ansible_user_dir }}/.config/bash_completion"
+      block: "{{ lookup('template', 'bash_completion.j2') }}"
+      marker: "{{ blockinfile_marker }}"
+      create: yes
 
   - name: Schedule daily cluster cache update
     cron:

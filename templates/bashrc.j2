@@ -1,0 +1,7 @@
+if [ -d "{{ ansible_user_dir }}/{{ bash_aliases_d }}" ]; then
+    for file in $(ls "{{ ansible_user_dir }}/{{ bash_aliases_d }}"); do
+        if [ -r "{{ ansible_user_dir }}/{{ bash_aliases_d }}/$file" ]; then
+            . "{{ ansible_user_dir }}/{{ bash_aliases_d }}/$file"
+        fi
+    done
+fi
