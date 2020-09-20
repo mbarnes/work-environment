@@ -12,9 +12,16 @@
 
   - name: Synchronize bin directory
     synchronize:
-      src: bin
-      dest: "{{ ansible_user_dir }}"
+      src: bin/
+      dest: "{{ ansible_user_dir }}/{{ bindir }}/"
       links: yes
+
+  - name: Synchronize v3/bin directory
+    synchronize:
+      src: v3/bin/
+      dest: "{{ ansible_user_dir }}/{{ bindir }}/"
+      links: yes
+    when: install_v3_files is defined
 
   # Cached cluster information
 
@@ -51,7 +58,7 @@
   - name: Install ocm tool from github
     command: go get -u github.com/openshift-online/ocm-cli/cmd/ocm
     args:
-      creates: "{{ ansible_user_dir }}/go/bin/ocm"
+      creates: "{{ ansible_user_dir }}/{{ bindir }}/ocm"
 
   # Powerline
 
