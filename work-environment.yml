@@ -70,6 +70,11 @@
       marker: "{{ blockinfile_marker }}"
       create: yes
 
+  - name: Synchronize bash_aliases directory
+    synchronize:
+      src: bash_aliases/
+      dest: "{{ ansible_user_dir }}/{{ bash_aliases_d }}/"
+
   - name: Schedule daily cluster cache update
     cron:
       name: "Daily {{ item }} cluster cache update"
