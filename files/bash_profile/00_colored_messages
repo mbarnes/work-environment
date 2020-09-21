@@ -1,0 +1,11 @@
+function color_info() {
+  local COLOR='\033[1;32m'  # Light Green
+  local RESET='\033[0m'
+  printf "(${COLOR}*${RESET}) ${COLOR}$1${RESET}\n"
+}
+
+function color_warning() {
+  local COLOR='\033[1;33m'  # Yellow
+  local RESET='\033[0m'
+  printf "(${COLOR}!${RESET}) ${COLOR}$1${RESET}\n" > /dev/stderr
+}

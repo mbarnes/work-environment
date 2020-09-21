@@ -1,0 +1,25 @@
+function update_ssh_auth_sock_link() {
+  if [ -n $1 ]; then
+    LINK_TARGET=$1
+  else
+    LINK_TARGET=$(ls -t /tmp/ssh-*/agent.* | head -n 1)
+  fi
+
+  if [ -e $LINK_TARGET ]; then
+    if [ "$(readlink -f $SSH_AUTH_SOCK_LINK)" != "$LINK_TARGET" ]; then
+      ln -sf $LINK_TARGET $SSH_AUTH_SOCK_LINK
+      color_info "Updated SSH auth socket link"
+    fi
+  else
+    color_warning "No SSH auth socket found"
+  fi
+}
+
+if [ -v TMUX ]; then
+  # Fix a broken SSH_AUTH_SOCK link.
+  if [ ! -e $SSH_AUTH_SOCK ]; then
+    update_ssh_auth_sock_link
+  fi
+else
+  update_ssh_auth_sock_link $SSH_AUTH_SOCK
+fi
