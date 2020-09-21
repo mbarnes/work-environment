@@ -85,12 +85,18 @@
       src: bash_completion/
       dest: "{{ ansible_user_dir }}/{{ bash_completion_d }}/"
 
+  - name: Override PATH in crontab
+    cron:
+      env: yes
+      name: PATH
+      value: "{{ ansible_user_dir }}/{{ bindir }}:/usr/bin:/bin"
+
   - name: Schedule daily cluster cache update
     cron:
       name: "Daily {{ item }} cluster cache update"
       special_time: daily
       user: "{{ ansible_user_id }}"
-      job: "{{ ansible_user_dir }}/bin/update-{{ item }}-cluster-cache"
+      job: "update-{{ item }}-cluster-cache"
     when: item == 'v4' or install_v3_files is defined
     with_items:
     - v3
