@@ -6,6 +6,7 @@ profile=.profile
 bash_aliases_d=.config/bash_aliases.d
 bash_profile_d=.config/bash_profile.d
 bash_completion_d=.config/bash_completion.d
+ocm_default_environment=staging
 
 [bastions]
 bastion-nasa-1.ops.openshift.com
@@ -21,3 +22,4 @@ bastion-apnortheast1-2.ops.openshift.com
 bindir=bin
 profile=.bash_profile
 install_v3_files=true
+ocm_default_environment=production

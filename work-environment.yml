@@ -9,7 +9,7 @@
   vars:
     # Use this for blockinfile tasks
     blockinfile_marker: "# (work-environment) {mark} ANSIBLE MANAGED BLOCK"
-
+    ocm_config_dir: "{{ ansible_user_dir }}/.config/ocm"
     virtualenv_root: "{{ ansible_user_dir }}/env"
   tasks:
 
@@ -129,6 +129,31 @@
     shell:
       cmd: "{{ ansible_user_dir }}/{{ bindir }}/ocm completion bash > {{ ansible_user_dir }}/{{ bash_completion_d }}/ocm"
 
+  # OpenShift Cluster Manager client configuration
+
+  - name: Create OpenShift Cluster Manager directory
+    file:
+      path: "{{ ocm_config_dir }}"
+      state: directory
+
+  - name: Touch OpenShift Cluster Manager environment files
+    copy:
+      content: |
+        {
+        }
+      dest: "{{ ocm_config_dir }}/{{ item }}.json"
+      force: no
+    loop:
+    - production
+    - staging
+    - integration
+
+  - name: Link default OpenShift Cluster Manager file
+    file:
+      src: "{{ ocm_config_dir }}/{{ ocm_default_environment }}.json"
+      path: "{{ ansible_user_dir }}/.ocm.json"
+      state: link
+
   # Powerline
 
   - name: Set up Powerline
@@ -162,3 +187,19 @@
         path: "{{ ansible_user_dir }}/.tmux.conf"
         line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/tmux/powerline.conf"
         create: yes
+
+  - pause:
+      prompt: |
+
+        Obtain login tokens for ocm environments:
+
+          production  : https://cloud.redhat.com/openshift/token
+                        ocm-production login --url production --token ...
+
+          staging     : https://qaprodauth.cloud.redhat.com/openshift/token
+                        ocm-staging login --url staging --token ...
+
+          integration : https://qaprodauth.cloud.redhat.com/openshift/token?env=integration
+                        ocm-integration login --url integration --token ...
+
+      seconds: 1

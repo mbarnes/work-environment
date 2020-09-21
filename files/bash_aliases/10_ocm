@@ -1,0 +1,7 @@
+alias ocm-production="OCM_CONFIG=$HOME/.config/ocm/production.json ocm"
+alias ocm-staging="OCM_CONFIG=$HOME/.config/ocm/staging.json ocm"
+alias ocm-integration="OCM_CONFIG=$HOME/.config/ocm/integration.json ocm"
+
+alias ocm-prod=ocm-production
+alias ocm-stg=ocm-staging
+alias ocm-int=ocm-integration
