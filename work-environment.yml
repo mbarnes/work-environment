@@ -102,6 +102,14 @@
     - v3
     - v4
 
+  - name: Edit SSH configuration
+    blockinfile:
+      path: "{{ ansible_user_dir }}/.ssh/config"
+      block: "{{ lookup('template', 'ssh_config.j2') }}"
+      marker: "{{ blockinfile_marker }}"
+      create: yes
+    when: "'bastions' not in group_names"
+
   # Install OpenShift client tools
 
   - name: Download OpenShift v4 client

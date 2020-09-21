@@ -1,0 +1,17 @@
+Host bastion bastion-nasa-1 bastion-nasa-1.ops.openshift.com
+  Hostname     bastion-nasa-1.ops.openshift.com
+  ForwardAgent yes
+  User         {{ bastion_user_id | default(ansible_user_id) }}
+  SendEnv      ZABBIX_USER ZABBIX_PASSWORD
+  IdentityFile ~/.ssh/id_rsa
+
+Host bastion bastion-nasa-2 bastion-nasa-2.ops.openshift.com
+  Hostname     bastion-nasa-2.ops.openshift.com
+  ForwardAgent yes
+  User         {{ bastion_user_id | default(ansible_user_id) }}
+  SendEnv      ZABBIX_USER ZABBIX_PASSWORD
+  IdentityFile ~/.ssh/id_rsa
+
+# For use with "ocm tunnel"
+Host *.devshift.org *.openshiftapps.com
+  ProxyJump    bastion-nasa-1.ops.openshift.com

@@ -23,3 +23,5 @@ bindir=bin
 profile=.bash_profile
 install_v3_files=true
 ocm_default_environment=production
+# Define if different from localhost
+#bastion_user_id=
