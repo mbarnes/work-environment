@@ -75,6 +75,11 @@
       src: bash_aliases/
       dest: "{{ ansible_user_dir }}/{{ bash_aliases_d }}/"
 
+  - name: Synchronize bash_profile directory
+    synchronize:
+      src: bash_profile/
+      dest: "{{ ansible_user_dir }}/{{ bash_profile_d }}/"
+
   - name: Schedule daily cluster cache update
     cron:
       name: "Daily {{ item }} cluster cache update"

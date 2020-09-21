@@ -1,0 +1,7 @@
+if [ -n "$TMUX" ]; then
+  # Source cluster state if available.
+  TMUX_CLUSTER_FILE=$(tmux-cluster-file)
+  if [[ -f $TMUX_CLUSTER_FILE ]]; then
+    . $TMUX_CLUSTER_FILE
+  fi
+fi
