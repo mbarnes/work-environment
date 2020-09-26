@@ -65,7 +65,7 @@
 
   - name: Edit bash_completion script
     blockinfile:
-      path: "{{ ansible_user_dir }}/.config/bash_completion"
+      path: "{{ ansible_user_dir }}/.bash_completion"
       block: "{{ lookup('template', 'bash_completion.j2') }}"
       marker: "{{ blockinfile_marker }}"
       create: yes
