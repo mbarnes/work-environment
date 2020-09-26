@@ -1,0 +1,78 @@
+#!/bin/bash
+#
+# Given an OCM cluster ID, requests temporary AWS credentials from the
+# appropriate Hive cluster and prints the AWS console URL.
+#
+# This is a complicated dance at present.  The Hive cluster may be hosted
+# on OpenShift v3 or v4, the latter of which requires a valid login token
+# and an SSH tunnel to access.
+#
+# XXX Some provisions have been made for running this from a localhost,
+#     but for the time being this only works on a bastion host for OCM
+#     cluster IDs from the production environment.
+#
+
+set -euo pipefail
+
+OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+if [[ -z "$OCM_CLUSTERID" ]]
+then
+  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
+  exit 1
+fi
+
+function jumphost-option {
+  case $(hostname) in
+    bastion-*.ops.openshift.com)
+      ;;
+    *)
+      echo "-J bastion-nasa-1.ops.openshift.com"
+      ;;
+  esac
+}
+
+function aws-console-v3 {
+  AWS_PROFILE=$1
+  eval $(aws-credentials $AWS_PROFILE)
+  ssh root@${HIVE_CLUSTER_NAME}-master $(jumphost-option) \
+    AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+    osdctl account console --cluster-id=$OCM_CLUSTERID
+}
+
+function aws-console-v4 {
+  AWS_PROFILE=$1
+  SOCKET_DIR=$XDG_RUNTIME_DIR/ssh
+  CONTROL_PATH="$SOCKET_DIR/%h.sock"
+  HIVE_CLUSTER_ID=$(get-cluster-var $HIVE_CLUSTER_NAME id)
+  ADDRESS=$(sshaddress $HIVE_CLUSTER_ID)
+  PROXY_PORT=$(find-proxy-port $HIVE_CLUSTER_ID)
+  mkdir --parents $SOCKET_DIR
+  trap "ssh -q -O exit -o ControlPath=$CONTROL_PATH $ADDRESS" EXIT
+  ssh -4fq -D $PROXY_PORT $(jumphost-option) \
+    -o ControlMaster=yes \
+    -o ControlPath=$CONTROL_PATH \
+    $ADDRESS true > /dev/null
+  export HTTPS_PROXY=socks5://localhost:$PROXY_PORT
+  export KUBECONFIG=$HOME/.config/sre/clusters/v4/$HIVE_CLUSTER_NAME
+  osdctl account console --aws-profile=$AWS_PROFILE --cluster-id=$OCM_CLUSTERID
+}
+
+HIVE_CLUSTER_NAME=$(hive-cluster-name $OCM_CLUSTERID)
+case $HIVE_CLUSTER_NAME in
+  hive-production)
+    aws-console-v3 rhcontrol
+    ;;
+  hive-integration|hive-stage)
+    aws-console-v3 osd-staging-1
+    ;;
+  hivep?????)
+    aws-console-v4 rhcontrol
+    ;;
+  hive-stage-01|hives?????)
+    aws-console-v4 osd-staging-1
+    ;;
+  *)
+    echo "Unknown Hive cluster '$HIVE_CLUSTER_NAME'" > /dev/stderr
+    exit 1
+esac
