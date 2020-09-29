@@ -1,0 +1,92 @@
+#!/usr/bin/python
+#
+# Using the current value of KUBECONFIG, tests whether the
+# user's credentials are accepted.  The exit code can help
+# determine whether the user needs to (re)authenticate.
+#
+# Exit codes:
+# 0 = Credentials are valid
+# 1 = Credentials are invalid or non-existent
+# 2 = Unable to determine validity
+#
+
+import base64
+import errno
+import os
+import sys
+
+import requests
+import yaml
+
+# Uncomment for HTTP-level debugging.
+#try: # for Python 3
+#    from http.client import HTTPConnection
+#except ImportError:
+#    from httplib import HTTPConnection
+#HTTPConnection.debuglevel = 1
+
+def die(exit_code, message, *args):
+    if len(args):
+        message = message.format(*args)
+    sys.stderr.write(message + '\n')
+    sys.exit(exit_code)
+
+def main():
+    kubeconfig = os.environ.get('KUBECONFIG')
+    if not kubeconfig:
+        die(2, 'KUBECONFIG environment variable not set')
+    try:
+        with open(kubeconfig, 'r') as config_file:
+            data = yaml.load(config_file)
+    except IOError as ex:
+        # Exit silently if the KUBECONFIG file does not exist.
+        # This just means the user has no credentials yet.
+        if ex.errno == errno.ENOENT:
+            sys.exit(1)
+        die(2, "Failed to read {}: {}", ex.filename, ex.strerror)
+    except yaml.reader.ReaderError as ex:
+        die(2, "Failed to parse YAML: {}", ex)
+
+    if not isinstance(data, dict):
+        die(2, "Invalid KUBECONFIG content")
+
+    current = data.get('current-context')
+    if not current:
+        die(2, "No current context in KUBECONFIG")
+
+    context_list = data.get('contexts', [])
+    context = next(c['context'] for c in context_list if c['name'] == current)
+    if not context:
+        die(2, "No context named '{}' in KUBECONFIG", current)
+
+    cluster_list = data.get('clusters', [])
+    cluster = next(c['cluster'] for c in cluster_list if c['name'] == context['cluster'])
+    if not cluster:
+        die(2, "No cluster named '{}' in KUBECONFIG", context['cluster'])
+
+    user_list = data.get('users', [])
+    user = next(u for u in user_list if u['name'] == context['user'])
+    if not user:
+        die(2, "No user named '{}' in KUBECONFIG", context['user'])
+
+    headers = {'Accept': 'application/json, */*'}
+    request_kwargs = {'headers': headers}
+    if 'client-certificate-data' in user and 'client-key-data' in user:
+        request_kwargs['cert'] = (
+            base64.b64decode(user['client-certificate-data']),
+            base64.b64decode(user['client-key-data']))
+    if 'token' in user:
+        headers['Authorization'] = 'Bearer ' + user['token']
+
+    try:
+        url = cluster['server'] + '/version'
+        response = requests.get(url, **request_kwargs)
+        if response.status_code == requests.codes.unauthorized:
+            sys.exit(1)
+        response.raise_for_status()
+        sys.exit(0)
+    except Exception as ex:
+        die(2, str(ex))
+
+if __name__ == '__main__':
+    main()
