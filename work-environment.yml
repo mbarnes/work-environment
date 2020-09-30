@@ -10,6 +10,7 @@
     # Use this for blockinfile tasks
     blockinfile_marker: "# (work-environment) {mark} ANSIBLE MANAGED BLOCK"
     ocm_config_dir: "{{ ansible_user_dir }}/.config/ocm"
+    ocm_environments: ["integration", "staging", "production"]
     virtualenv_root: "{{ ansible_user_dir }}/env"
   tasks:
 
@@ -170,26 +171,24 @@
 
   # OpenShift Cluster Manager client configuration
 
-  - name: Create OpenShift Cluster Manager directory
+  - name: Create OpenShift Cluster Manager environment directories
     file:
-      path: "{{ ocm_config_dir }}"
+      path: "{{ ocm_config_dir }}/{{ item }}/clusters"
       state: directory
+    loop: "{{ ocm_environments }}"
 
-  - name: Touch OpenShift Cluster Manager environment files
+  - name: Touch OpenShift Cluster Manager configuration files
     copy:
       content: |
         {
         }
-      dest: "{{ ocm_config_dir }}/{{ item }}.json"
+      dest: "{{ ocm_config_dir }}/{{ item }}/config"
       force: no
-    loop:
-    - production
-    - staging
-    - integration
+    loop: "{{ ocm_environments }}"
 
   - name: Link default OpenShift Cluster Manager file
     file:
-      src: "{{ ocm_config_dir }}/{{ ocm_default_environment }}.json"
+      src: "{{ ocm_config_dir }}/{{ ocm_default_environment }}/config"
       path: "{{ ansible_user_dir }}/.ocm.json"
       state: link
 
