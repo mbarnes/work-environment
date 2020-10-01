@@ -34,14 +34,17 @@
       src: tmux.hooks
       dest: "{{ ansible_user_dir }}/.cache/sre/"
 
-  - name: Create cluster cache directories
+  - name: Create v3 cluster cache directory
     file:
-      path: "{{ ansible_user_dir }}/.cache/sre/clusters/{{ item }}"
+      path: "{{ ansible_user_dir }}/.cache/sre/clusters/v3"
       state: directory
-    when: item == 'v4' or install_v3_files is defined
-    with_items:
-    - v3
-    - v4
+    when: install_v3_files is defined
+
+  - name: Create v4 cluster cache directories
+    file:
+      path: "{{ ansible_user_dir }}/.cache/ocm/{{ item }}/clusters"
+      state: directory
+    loop: "{{ ocm_environments }}"
 
   - name: Create user directories
     file:

@@ -42,8 +42,8 @@ except ImportError:
         return None
 
 
-CACHE_DIR = '~/.cache/sre/clusters'
-CONFIG_DIR = '~/.config/sre/clusters/v4'
+CACHE_DIR = '~/.cache/ocm'
+CONFIG_DIR = '~/.config/ocm'
 CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters'
 OCM_COMMAND_DEFAULT = which('ocm')
 
@@ -57,7 +57,7 @@ def safe_mkdir(path, mode=0777):
             raise
 
 
-def get_managed_clusters(ocm_command):
+def get_managed_clusters(ocm_command, ocm_config_file):
     page=1
     items=[]
 
@@ -66,10 +66,21 @@ def get_managed_clusters(ocm_command):
     total=sys.maxsize
 
     while len(items) < total:
-        ocm_output = subprocess.check_output([
-            ocm_command, 'get', CLUSTERS_API_PATH,
-            '--parameter=search=managed=\'true\'',
-            '--parameter=page=%d' % page])
+        try:
+            ocm_output = subprocess.check_output([
+                ocm_command, 'get', CLUSTERS_API_PATH,
+                '--parameter=search=managed=\'true\'',
+                '--parameter=page=%d' % page],
+                env={'OCM_CONFIG': ocm_config_file},
+                stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as ex:
+            display_command="OCM_CONFIG={} {}".format(ocm_config_file, ocm_command)
+            sys.stderr.write(
+                "{}: Command \"{}\" returned non-zero exit status {}\n".format(
+                os.path.basename(sys.argv[0]), display_command, ex.returncode))
+            sys.stderr.write(ex.output)
+            del items[:]
+            break
         json_result = json.loads(ocm_output)
         total = json_result['total']
         items.extend(json_result['items'])
@@ -95,32 +106,40 @@ def get_managed_clusters(ocm_command):
 
 
 def main(args):
-    managed_clusters = get_managed_clusters(args.ocm_command)
+    ocm_base_cache_dir = os.path.expanduser(CACHE_DIR)
+    ocm_base_config_dir = os.path.expanduser(CONFIG_DIR)
 
-    # Replace the cache directory
-    cache_basedir = os.path.expanduser(CACHE_DIR)
-    safe_mkdir(cache_basedir)
-    tempdir = tempfile.mkdtemp(dir=cache_basedir)
-    os.chdir(tempdir)  # for relative symlinks
-    for cluster_name, cluster_data in managed_clusters.items():
-        filename = os.path.join(tempdir, cluster_name)
-        with open(filename, 'w') as cache_file:
-            content = json.dumps(cluster_data, indent=2)
-            cache_file.write(content + '\n')
-        if 'external_id' in cluster_data:
-            os.symlink(cluster_name, cluster_data['external_id'])
-    cache_fulldir = os.path.join(cache_basedir, 'v4')
-    if os.path.isdir(cache_fulldir):
-        shutil.rmtree(cache_fulldir)
-    os.rename(tempdir, cache_fulldir)
+    for ocm_environment in ('production', 'staging', 'integration'):
+        ocm_cache_dir = os.path.join(ocm_base_cache_dir, ocm_environment)
+        ocm_config_dir = os.path.join(ocm_base_config_dir, ocm_environment)
 
-    # Clean up the config directory
-    config_basedir = os.path.expanduser(CONFIG_DIR)
-    safe_mkdir(config_basedir)
-    for dirpath, dirnames, filenames in os.walk(config_basedir):
-        for cluster_name in filenames:
-            if cluster_name not in managed_clusters:
-                os.unlink(os.path.join(dirpath, cluster_name))
+        ocm_clusters_cache_dir = os.path.join(ocm_cache_dir, 'clusters')
+        ocm_clusters_config_dir = os.path.join(ocm_config_dir, 'clusters')
+
+        ocm_config_file = os.path.join(ocm_config_dir, 'config')
+        managed_clusters = get_managed_clusters(args.ocm_command, ocm_config_file)
+
+        # Replace the cache directory
+        safe_mkdir(ocm_cache_dir)
+        tempdir = tempfile.mkdtemp(dir=ocm_cache_dir)
+        os.chdir(tempdir)  # for relative symlinks
+        for cluster_name, cluster_data in managed_clusters.items():
+            filename = os.path.join(tempdir, cluster_name)
+            with open(filename, 'w') as cache_file:
+                content = json.dumps(cluster_data, indent=2)
+                cache_file.write(content + '\n')
+            if 'external_id' in cluster_data:
+                os.symlink(cluster_name, cluster_data['external_id'])
+        if os.path.isdir(ocm_clusters_cache_dir):
+            shutil.rmtree(ocm_clusters_cache_dir)
+        os.rename(tempdir, ocm_clusters_cache_dir)
+
+        # Clean up the config directory
+        safe_mkdir(ocm_clusters_config_dir)
+        for dirpath, dirnames, filenames in os.walk(ocm_clusters_config_dir):
+            for cluster_name in filenames:
+                if cluster_name not in managed_clusters:
+                    os.unlink(os.path.join(dirpath, cluster_name))
 
 
 if __name__ == '__main__':

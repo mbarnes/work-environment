@@ -54,7 +54,7 @@ function aws-console-v4 {
     -o ControlPath=$CONTROL_PATH \
     $ADDRESS true > /dev/null
   export HTTPS_PROXY=socks5://localhost:$PROXY_PORT
-  export KUBECONFIG=$HOME/.config/sre/clusters/v4/$HIVE_CLUSTER_NAME
+  export KUBECONFIG=$HOME/.config/ocm/production/clusters/$HIVE_CLUSTER_NAME
   osdctl account console --aws-profile=$AWS_PROFILE --cluster-id=$OCM_CLUSTERID
 }
 

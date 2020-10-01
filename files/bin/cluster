@@ -17,6 +17,7 @@ then
 else
   # Unset any previous cluster variables.
   unset KUBECONFIG
+  unset OCM_CONFIG
   unset OCM_CLUSTERID
   unset AWS_PROFILE
   unset AWS_DEFAULT_REGION
@@ -34,8 +35,15 @@ else
       ;;
     *)
       V3_CACHE_FILE=$(realpath --canonicalize-missing $HOME/.cache/sre/clusters/v3/$CLUSTERID)
-      V4_CACHE_FILE=$(realpath --canonicalize-missing $HOME/.cache/sre/clusters/v4/$CLUSTERID)
-      V4_CONFIG_DIR="$HOME/.config/sre/clusters/v4"
+      V4_FOUND_FILE=$(find $HOME/.cache/ocm -name "$CLUSTERID" | head --lines=1)
+      if [[ -n "$V4_FOUND_FILE" ]]
+      then
+        V4_CACHE_FILE=$(realpath "$V4_FOUND_FILE")
+        V4_CONFIG_DIR=$(dirname $(dirname ${V4_CACHE_FILE/.cache/.config}))
+      else
+        V4_CACHE_FILE=
+        V4_CONFIG_DIR=
+      fi
 
       if [[ -z "$VERSION" ]] && [[ -f "$V3_CACHE_FILE" ]] && [[ -f "$V4_CACHE_FILE" ]]
       then
@@ -50,9 +58,10 @@ else
       elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f "$V4_CACHE_FILE" ]]
       then
         VERSION=v4
-        mkdir -p "$V4_CONFIG_DIR"
+        mkdir -p "$V4_CONFIG_DIR/clusters"
         CLUSTERID=$(basename $V4_CACHE_FILE)
-        export KUBECONFIG="$V4_CONFIG_DIR/$CLUSTERID"
+        export KUBECONFIG="$V4_CONFIG_DIR/clusters/$CLUSTERID"
+        export OCM_CONFIG="$V4_CONFIG_DIR/config"
         export OCM_CLUSTERID=$(get-cluster-var v4:$CLUSTERID id)
         export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
         API_LISTENING=$(get-cluster-var v4:$CLUSTERID api.listening)
@@ -71,6 +80,7 @@ else
   then
     echo "         CLUSTERID : $CLUSTERID"
     echo "     OCM_CLUSTERID : $OCM_CLUSTERID"
+    echo "        OCM_CONFIG : $OCM_CONFIG"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
 
     if [[ "$API_LISTENING" == "internal" ]]
@@ -111,6 +121,10 @@ then
         if [[ -n "$OCM_CLUSTERID" ]]
         then
             echo "export OCM_CLUSTERID=$OCM_CLUSTERID" >> $TMUX_CLUSTER_FILE
+        fi
+        if [[ -n "$OCM_CONFIG" ]]
+        then
+            echo "export OCM_CONFIG=$OCM_CONFIG" >> $TMUX_CLUSTER_FILE
         fi
     fi
     tmux rename-window "$VERSION:$CLUSTERID"

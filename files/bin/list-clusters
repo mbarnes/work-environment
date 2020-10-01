@@ -3,9 +3,20 @@
 # List v3 or v4 cluster names based on cached filenames.
 #
 
-CLUSTER_DIR="$HOME/.cache/sre/clusters/${1:-v3}"
-
-if [[ -d "$CLUSTER_DIR" ]]
+VERSION=${1:-v4}
+if [[ "$VERSION" == "v3" ]]
 then
-  ls -1 "$CLUSTER_DIR"
+  CLUSTER_CACHE_DIR="$HOME/.cache/sre/clusters/v3"
+else
+  if [[ ! -v OCM_CONFIG ]]
+  then
+    OCM_CONFIG="$HOME/.ocm.json"
+  fi
+  OCM_CONFIG=$(realpath --canonicalize-missing "$OCM_CONFIG")
+  CLUSTER_CACHE_DIR="$(dirname ${OCM_CONFIG/.config/.cache})/clusters"
+fi
+
+if [[ -d "$CLUSTER_CACHE_DIR" ]]
+then
+  find "$CLUSTER_CACHE_DIR" -maxdepth 1 -type f -printf "%f\n" | sort
 fi

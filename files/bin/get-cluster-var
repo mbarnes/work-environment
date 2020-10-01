@@ -1,19 +1,16 @@
 #!/bin/bash
 #
-# Retrieves a cluster variable from locally cached files created
-# by ~/bin/update-v3-cluster-cache.
+# Retrieves a cluster variable from locally cached files created by
+# update-v3-cluster-cache or update-v4-cluster-cache.
 #
-# This command is generally not called directly, but through one
-# of the "oo" commands (oo_account, oo_environment, etc).
+# For v3 clusters, this command is generally not called directly, but
+# through one of the "oo" commands (oo_account, oo_environment, etc).
 #
 #   get-cluster-var CLUSTERID [VARNAME]
 #
-# The program can also be used as a silent validity test for a
-# CLUSTERID by omitting the VARNAME argument, although this only
-# really indicates whether a locally cached file exists for it.
-#
-# NOTE: Very early, very experimental v4 support.  This may be
-#       reverted or drastically changed.
+# The program can also be used as a silent validity test for a CLUSTERID
+# by omitting the VARNAME argument, although this only really indicates
+# whether a locally cached file exists for it.
 #
 
 CLUSTER=$1
@@ -30,19 +27,25 @@ then
   CLUSTER=${CLUSTER:3}
 fi
 
-V3_FILE="$HOME/.cache/sre/clusters/v3/$CLUSTER"
-V4_FILE="$HOME/.cache/sre/clusters/v4/$CLUSTER"
-if [[ "${VERSION:-v3}" == "v3" ]] && [[ -f $V3_FILE ]]
+V3_CACHE_FILE="$HOME/.cache/sre/clusters/v3/$CLUSTER"
+V4_FOUND_FILE=$(find $HOME/.cache/ocm -name "$CLUSTER" | head --lines=1)
+if [[ -n "$V4_FOUND_FILE" ]]
+then
+  V4_CACHE_FILE=$(realpath "$V4_FOUND_FILE")
+else
+  V4_CACHE_FILE=
+fi
+if [[ "${VERSION:-v3}" == "v3" ]] && [[ -f $V3_CACHE_FILE ]]
 then
   if [[ -n $VARNAME ]]
   then
-    cat $V3_FILE | jq ".$VARNAME" | tr -d '"'
+    jq --raw-output ".$VARNAME" $V3_CACHE_FILE
   fi
-elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f $V4_FILE ]]
+elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f $V4_CACHE_FILE ]]
 then
   if [[ -n $VARNAME ]]
   then
-    cat $V4_FILE | jq ".$VARNAME" | tr -d '"'
+    jq --raw-output ".$VARNAME" $V4_CACHE_FILE
   fi
 else
   echo "Unknown cluster '$CLUSTER'" > /dev/stderr
