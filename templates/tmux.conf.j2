@@ -1,0 +1,4 @@
+set-hook -g session-created "run-shell '{{ work_environment_dir }}/tmux.hooks #{hook}'"
+set-hook -g session-closed  "run-shell '{{ work_environment_dir }}/tmux.hooks #{hook}'"
+set-hook -g window-linked   "run-shell '{{ work_environment_dir }}/tmux.hooks #{hook}'"
+set-hook -g window-unlinked "run-shell '{{ work_environment_dir }}/tmux.hooks #{hook}'"

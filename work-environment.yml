@@ -18,6 +18,7 @@
     ocm_config_dir: "{{ xdg_config_home }}/ocm"
     ocm_environments: ["integration", "staging", "production"]
     virtualenv_root: "{{ ansible_user_dir }}/env"
+    work_environment_dir: "{{ xdg_data_home }}/work-environment"
   tasks:
 
   - name: Synchronize bin directory
@@ -33,12 +34,19 @@
       links: yes
     when: install_v3_files is defined
 
-  # Cached cluster information
+  - name: Synchronize work-environment directory
+    synchronize:
+      src: work-environment/
+      dest: "{{ work_environment_dir }}/"
 
-  - name: Copy tmux hook script
-    copy:
-      src: tmux.hooks
-      dest: "{{ xdg_cache_home }}/sre/"
+  - name: Edit tmux configuration
+    blockinfile:
+      path: "{{ ansible_user_dir }}/.tmux.conf"
+      block: "{{ lookup('template', 'tmux.conf.j2') }}"
+      marker: "{{ blockinfile_marker }}"
+      create: yes
+
+  # Cached cluster information
 
   - name: Create v3 cluster cache directory
     file:
