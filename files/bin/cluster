@@ -67,41 +67,13 @@ else
         export OCM_CONFIG="$V4_CONFIG_DIR/config"
         export OCM_CLUSTERID=$(get-cluster-var v4:$CLUSTERID id)
         export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
-        API_LISTENING=$(get-cluster-var v4:$CLUSTERID api.listening)
       else
         echo "Unknown cluster '$CLUSTERID'" > /dev/stderr
       fi
       ;;
   esac
 
-  if [[ -n "$AWS_PROFILE" ]]
-  then
-    echo "         CLUSTERID : $CLUSTERID"
-    echo "       AWS_PROFILE : $AWS_PROFILE"
-    echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
-  elif [[ -n "$KUBECONFIG" ]]
-  then
-    echo "         CLUSTERID : $CLUSTERID"
-    echo "     OCM_CLUSTERID : $OCM_CLUSTERID"
-    echo "        OCM_CONFIG : $OCM_CONFIG"
-    echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
-
-    if [[ "$API_LISTENING" == "internal" ]]
-    then
-      echo
-      case $(hostname) in
-        bastion-*.ops.openshift.com)
-          echo "API service is internal (use 'sshproxy')"
-          ;;
-        *)
-          echo "API service is internal (use 'sshproxy' or 'ocm tunnel')"
-          ;;
-      esac
-    fi
-
-    echo
-    echo "Run \"token\" to obtain a login token."
-  fi
+  cluster-context
 fi
 
 TMUX_CLUSTER_FILE=$(tmux-cluster-file)

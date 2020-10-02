@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+# Pretty-prints environment variables and other helpful messages
+# describing the current OCM and Kubernetes context.
+#
+# This is shown when calling "source cluster CLUSTERID", but is
+# split into a separate command for convenience (e.g. the prior
+# output has scrolled out of view).
+#
+
+if [[ -v CLUSTERID ]]
+then
+  if [[ -v AWS_PROFILE ]]
+  then
+    # OpenShift v3 context
+    echo "         CLUSTERID : $CLUSTERID"
+    echo "       AWS_PROFILE : $AWS_PROFILE"
+    echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
+  elif [[ -v KUBECONFIG ]]
+  then
+    # OpenShift v4 context
+    echo "         CLUSTERID : $CLUSTERID"
+    echo "     OCM_CLUSTERID : $OCM_CLUSTERID"
+    echo "        OCM_CONFIG : $OCM_CONFIG"
+    echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
+
+    if [[ "$(get-cluster-var v4:$CLUSTERID api.listening)" == "internal" ]]
+    then
+      echo
+      case $(hostname) in
+        bastion-*.ops.openshift.com)
+          echo "API service is internal (use 'sshproxy')"
+          ;;
+        *)
+          echo "API service is internal (use 'sshproxy' or 'ocm tunnel')"
+          ;;
+      esac
+    fi
+
+    echo
+    echo "Run \"token\" to obtain a login token."
+  fi
+fi
