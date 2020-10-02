@@ -180,6 +180,36 @@
 
   # OpenShift Cluster Manager client configuration
 
+  - name: Store v4 cluster secrets on encrypted mount
+    when: "'bastions' in group_names"
+    block:
+
+    - name: Check for .private-encrypted directory
+      stat:
+        path: "{{ ansible_user_dir }}/.private-encrypted"
+      register: private_encrypted_dir
+
+    # The .private-encrypted directory is encrypted, whereas .private is the
+    # unencrypted FUSE mount.  If .private-encrypted exists, assume .private
+    # is mounted and let the playbook fail if not.
+
+    - name: Create ocm directory on encrypted mount
+      file:
+        path: "{{ ansible_user_dir }}/.private/ocm"
+        state: directory
+      when:
+      - private_encrypted_dir.stat.isdir is defined
+      - private_encrypted_dir.stat.isdir
+
+    - name: Link ocm configuration directory to encrypted mount
+      file:
+        src: "{{ ansible_user_dir }}/.private/ocm"
+        path: "{{ ocm_config_dir }}"
+        state: link
+      when:
+      - private_encrypted_dir.stat.isdir is defined
+      - private_encrypted_dir.stat.isdir
+
   - name: Create OpenShift Cluster Manager environment directories
     file:
       path: "{{ ocm_config_dir }}/{{ item }}/clusters"
