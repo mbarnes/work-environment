@@ -3,17 +3,23 @@
 # List v3 or v4 cluster names based on cached filenames.
 #
 
+set -euo pipefail
+
+XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
 VERSION=${1:-v4}
 if [[ "$VERSION" == "v3" ]]
 then
-  CLUSTER_CACHE_DIR="$HOME/.cache/sre/clusters/v3"
+  CLUSTER_CACHE_DIR="$XDG_CACHE_HOME/sre/clusters/v3"
 else
   if [[ ! -v OCM_CONFIG ]]
   then
     OCM_CONFIG="$HOME/.ocm.json"
   fi
   OCM_CONFIG=$(realpath --canonicalize-missing "$OCM_CONFIG")
-  CLUSTER_CACHE_DIR="$(dirname ${OCM_CONFIG/.config/.cache})/clusters"
+  OCM_ENVIRONMENT=$(basename $(dirname $OCM_CONFIG))
+  CLUSTER_CACHE_DIR="$XDG_CACHE_HOME/ocm/$OCM_ENVIRONMENT/clusters"
 fi
 
 if [[ -d "$CLUSTER_CACHE_DIR" ]]

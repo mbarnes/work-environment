@@ -1,7 +1,7 @@
-if [ -d "{{ ansible_user_dir }}/{{ bash_profile_d }}" ]; then
-    for file in $(ls "{{ ansible_user_dir }}/{{ bash_profile_d }}"); do
-        if [ -r "{{ ansible_user_dir }}/{{ bash_profile_d }}/$file" ]; then
-            . "{{ ansible_user_dir }}/{{ bash_profile_d }}/$file"
+if [ -d "{{ bash_profile_d }}" ]; then
+    for file in $(ls "{{ bash_profile_d }}"); do
+        if [ -r "{{ bash_profile_d }}/$file" ]; then
+            . "{{ bash_profile_d }}/$file"
         fi
     done
 fi

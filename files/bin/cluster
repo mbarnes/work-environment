@@ -1,5 +1,8 @@
 #!/bin/bash
 
+XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
 if [[ -n $1 ]]
 then
   export CLUSTERID=$1
@@ -34,12 +37,12 @@ else
       export AWS_DEFAULT_REGION="us-east-2"
       ;;
     *)
-      V3_CACHE_FILE=$(realpath --canonicalize-missing $HOME/.cache/sre/clusters/v3/$CLUSTERID)
-      V4_FOUND_FILE=$(find $HOME/.cache/ocm -name "$CLUSTERID" | head --lines=1)
+      V3_CACHE_FILE=$(realpath --canonicalize-missing $XDG_CACHE_HOME/sre/clusters/v3/$CLUSTERID)
+      V4_FOUND_FILE=$(find $XDG_CACHE_HOME/ocm -name "$CLUSTERID" | head --lines=1)
       if [[ -n "$V4_FOUND_FILE" ]]
       then
         V4_CACHE_FILE=$(realpath "$V4_FOUND_FILE")
-        V4_CONFIG_DIR=$(dirname $(dirname ${V4_CACHE_FILE/.cache/.config}))
+        V4_CONFIG_DIR=$(dirname $(dirname ${V4_CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}))
       else
         V4_CACHE_FILE=
         V4_CONFIG_DIR=

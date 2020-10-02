@@ -3,9 +3,9 @@ localhost
 [all:vars]
 bindir=.local/bin
 profile=.profile
-bash_aliases_d=.config/bash_aliases.d
-bash_profile_d=.config/bash_profile.d
-bash_completion_d=.config/bash_completion.d
+bash_aliases_d="{{ xdg_config_home }}/bash_aliases.d"
+bash_profile_d="{{ xdg_config_home }}/bash_profile.d"
+bash_completion_d="{{ xdg_config_home }}/bash_completion.d"
 ocm_default_environment=staging
 
 [bastions]

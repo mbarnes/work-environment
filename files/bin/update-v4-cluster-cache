@@ -42,8 +42,14 @@ except ImportError:
         return None
 
 
-CACHE_DIR = '~/.cache/ocm'
-CONFIG_DIR = '~/.config/ocm'
+HOME = os.path.expandvars('$HOME')
+XDG_CACHE_HOME_DEFAULT = os.path.join(HOME, '.cache')
+XDG_CACHE_HOME = os.environ.get('XDG_CACHE_HOME', XDG_CACHE_HOME_DEFAULT)
+XDG_CONFIG_HOME_DEFAULT = os.path.join(HOME, '.config')
+XDG_CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME', XDG_CONFIG_HOME_DEFAULT)
+
+OCM_CACHE_DIR = os.path.join(XDG_CACHE_HOME, 'ocm')
+OCM_CONFIG_DIR = os.path.join(XDG_CONFIG_HOME, 'ocm')
 CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters'
 OCM_COMMAND_DEFAULT = which('ocm')
 
@@ -106,8 +112,8 @@ def get_managed_clusters(ocm_command, ocm_config_file):
 
 
 def main(args):
-    ocm_base_cache_dir = os.path.expanduser(CACHE_DIR)
-    ocm_base_config_dir = os.path.expanduser(CONFIG_DIR)
+    ocm_base_cache_dir = os.path.expanduser(OCM_CACHE_DIR)
+    ocm_base_config_dir = os.path.expanduser(OCM_CONFIG_DIR)
 
     for ocm_environment in ('production', 'staging', 'integration'):
         ocm_cache_dir = os.path.join(ocm_base_cache_dir, ocm_environment)

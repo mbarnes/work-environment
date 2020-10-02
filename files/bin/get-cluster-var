@@ -13,6 +13,10 @@
 # whether a locally cached file exists for it.
 #
 
+set -euo pipefail
+
+XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+
 CLUSTER=$1
 VARNAME=$2
 if [[ -z $CLUSTER ]]
@@ -27,8 +31,8 @@ then
   CLUSTER=${CLUSTER:3}
 fi
 
-V3_CACHE_FILE="$HOME/.cache/sre/clusters/v3/$CLUSTER"
-V4_FOUND_FILE=$(find $HOME/.cache/ocm -name "$CLUSTER" | head --lines=1)
+V3_CACHE_FILE="$XDG_CACHE_HOME/sre/clusters/v3/$CLUSTER"
+V4_FOUND_FILE=$(find $XDG_CACHE_HOME/ocm -name "$CLUSTER" | head --lines=1)
 if [[ -n "$V4_FOUND_FILE" ]]
 then
   V4_CACHE_FILE=$(realpath "$V4_FOUND_FILE")

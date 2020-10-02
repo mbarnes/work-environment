@@ -14,6 +14,8 @@
 
 set -euo pipefail
 
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
 OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
 if [[ -z "$OCM_CLUSTERID" ]]
 then
@@ -54,7 +56,7 @@ function aws-console-v4 {
     -o ControlPath=$CONTROL_PATH \
     $ADDRESS true > /dev/null
   export HTTPS_PROXY=socks5://localhost:$PROXY_PORT
-  export KUBECONFIG=$HOME/.config/ocm/production/clusters/$HIVE_CLUSTER_NAME
+  export KUBECONFIG=$XDG_CONFIG_HOME/ocm/production/clusters/$HIVE_CLUSTER_NAME
   osdctl account console --aws-profile=$AWS_PROFILE --cluster-id=$OCM_CLUSTERID
 }
 

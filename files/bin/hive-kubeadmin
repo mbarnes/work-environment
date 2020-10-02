@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
 OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
 if [[ -z "$OCM_CLUSTERID" ]]
 then
@@ -32,7 +34,7 @@ in
         trap "ssh -q -O exit -o ControlPath=$CONTROL_PATH $ADDRESS" EXIT
         ssh -4fq -D $PROXY_PORT -o ControlMaster=yes -o ControlPath=$CONTROL_PATH $ADDRESS true > /dev/null
         export HTTPS_PROXY=socks5://localhost:$PROXY_PORT
-        OC="oc --config=$HOME/.config/ocm/production/clusters/$HIVE_CLUSTER_NAME"
+        OC="oc --config=$XDG_CONFIG_HOME/ocm/production/clusters/$HIVE_CLUSTER_NAME"
         ;;
     esac
 

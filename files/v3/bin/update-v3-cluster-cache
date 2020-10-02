@@ -22,7 +22,11 @@ import tempfile
 
 from openshift_tools.inventory_clients import multi_inventory
 
-CACHE_DIR = '~/.cache/sre/clusters'
+HOME = os.path.expandvars('$HOME')
+XDG_CACHE_HOME_DEFAULT = os.path.join(HOME, '.cache')
+XDG_CACHE_HOME = os.environ.get('XDG_CACHE_HOME', XDG_CACHE_HOME_DEFAULT)
+
+CACHE_DIR = os.path.join(XDG_CACHE_HOME, 'sre', 'clusters')
 GROUP_PREFIX = 'synthetic_'
 
 def safe_mkdir(path, mode=0777):
