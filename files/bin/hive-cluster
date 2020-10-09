@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# Prints information in JSON format about the Hive cluster that
+# provisioned the given OpenShift Cluster Manager (OCM) cluster.
+#
+# If the OCM cluster was provisioned by a v3 Hive cluster, then
+# the JSON information will only contain these fields:
+#
+#   name
+#   display_name (same as name)
+#   openshift_version (3.11)
+#   api.url
+#   api.listening (external)
+#
+
+set -euo pipefail
+
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
+OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+if [[ -z "$OCM_CLUSTERID" ]]
+then
+  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
+  exit 1
+fi
+
+CLUSTERS_API_PATH="/api/clusters_mgmt/v1/clusters"
+HIVE_SERVER=$(ocm get $CLUSTERS_API_PATH/$OCM_CLUSTERID/provision_shard | jq --raw-output ".hive_config.server")
+
+case $HIVE_SERVER in
+  # Hive clusters hosted on OSDv3
+  *.hive-integration.*|*.hive-staging.*|*.hive-production.*)
+    NAME=$(echo $HIVE_SERVER | grep --extended-regexp --only-matching "hive-integration|hive-staging|hive-production")
+    cat <<EOF | jq '.'
+{
+  "name": "$NAME",
+  "display_name": "$NAME",
+  "openshift_version": "3.11",
+  "api": {
+    "url": "$HIVE_SERVER",
+    "listening": "external"
+  }
+}
+EOF
+    ;;
+  *)
+    OCM_PRODUCTION_DIR="$XDG_CONFIG_HOME/ocm/production"
+    OCM_CONFIG="$OCM_PRODUCTION_DIR/config" ocm get $CLUSTERS_API_PATH --parameter="search=api.url='$HIVE_SERVER'" | jq '.items[0]'
+    ;;
+esac

@@ -64,7 +64,7 @@ function aws-console-v4 {
     --cluster-id=$OCM_CLUSTERID
 }
 
-HIVE_CLUSTER_NAME=$(hive-cluster-name $OCM_CLUSTERID)
+HIVE_CLUSTER_NAME=$(hive-cluster $OCM_CLUSTERID | jq --raw-output .display_name)
 case $HIVE_CLUSTER_NAME in
   hive-production)
     aws-console-v3 rhcontrol

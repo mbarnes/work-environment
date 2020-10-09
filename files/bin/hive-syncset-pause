@@ -16,7 +16,7 @@ then
   echo "Usage: $0 <ocm-clusterid> [hive-cluster-name]" > /dev/stderr
   exit 1
 fi
-HIVE_CLUSTER_NAME=${2:-$(hive-cluster-name $OCM_CLUSTERID)}
+HIVE_CLUSTER_NAME=${2:-$(hive-cluster $OCM_CLUSTERID | jq --raw-output .display_name)}
 
 case $HIVE_CLUSTER_NAME in
   # Hive clusters hosted on OSDv3
