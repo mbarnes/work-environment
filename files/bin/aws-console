@@ -47,7 +47,8 @@ function aws-console-v4 {
   SOCKET_DIR=$XDG_RUNTIME_DIR/ssh
   CONTROL_PATH="$SOCKET_DIR/%h.sock"
   HIVE_CLUSTER_ID=$(get-cluster-var $HIVE_CLUSTER_NAME id)
-  ADDRESS=$(sshaddress $HIVE_CLUSTER_ID)
+  OCM_PRODUCTION_DIR="$XDG_CONFIG_HOME/ocm/production"
+  ADDRESS=$(OCM_CONFIG="$OCM_PRODUCTION_DIR/config" sshaddress $HIVE_CLUSTER_ID)
   PROXY_PORT=$(find-proxy-port $HIVE_CLUSTER_ID)
   mkdir --parents $SOCKET_DIR
   trap "ssh -q -O exit -o ControlPath=$CONTROL_PATH $ADDRESS" EXIT
@@ -56,8 +57,11 @@ function aws-console-v4 {
     -o ControlPath=$CONTROL_PATH \
     $ADDRESS true > /dev/null
   export HTTPS_PROXY=socks5://localhost:$PROXY_PORT
-  export KUBECONFIG=$XDG_CONFIG_HOME/ocm/production/clusters/$HIVE_CLUSTER_NAME
-  osdctl account console --aws-profile=$AWS_PROFILE --cluster-id=$OCM_CLUSTERID
+  export OCM_CONFIG="$OCM_PRODUCTION_DIR/config"
+  osdctl account console \
+    --kubeconfig=$OCM_PRODUCTION_DIR/clusters/$HIVE_CLUSTER_NAME \
+    --aws-profile=$AWS_PROFILE \
+    --cluster-id=$OCM_CLUSTERID
 }
 
 HIVE_CLUSTER_NAME=$(hive-cluster-name $OCM_CLUSTERID)
