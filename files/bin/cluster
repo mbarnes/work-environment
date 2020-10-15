@@ -1,17 +1,14 @@
 #!/bin/bash
 
+XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
+source "$XDG_DATA_HOME/work-environment/functions.sh"
 
 if [[ -n $1 ]]
 then
   export CLUSTERID=$1
-fi
-
-if [[ "${CLUSTERID:0:3}" =~ ^v[34]: ]]
-then
-  VERSION=${CLUSTERID:0:2}
-  CLUSTERID=${CLUSTERID:3}
 fi
 
 if [[ -z "$CLUSTERID" ]]
@@ -25,55 +22,40 @@ else
   unset AWS_PROFILE
   unset AWS_DEFAULT_REGION
 
-  case "$CLUSTERID" in
+  if [[ "$CLUSTERID" == "none" ]]
+  then
     # Special name to reset the environment.
-    none)
-      unset CLUSTERID
-      ;;
-    # Special handling for v3 test clusters.
-    mbarnestest*)
-      VERSION=v3
-      export AWS_PROFILE="opstest"
-      export AWS_DEFAULT_REGION="us-east-2"
-      ;;
-    *)
-      V3_CACHE_FILE=$(realpath --canonicalize-missing $XDG_CACHE_HOME/sre/clusters/v3/$CLUSTERID)
-      V4_FOUND_FILE=$(find $XDG_CACHE_HOME/ocm -name "$CLUSTERID" | head --lines=1)
-      if [[ -n "$V4_FOUND_FILE" ]]
-      then
-        V4_CACHE_FILE=$(realpath "$V4_FOUND_FILE")
-        V4_CONFIG_DIR=$(dirname $(dirname ${V4_CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}))
-      else
-        V4_CACHE_FILE=
-        V4_CONFIG_DIR=
-      fi
-
-      if [[ -z "$VERSION" ]] && [[ -f "$V3_CACHE_FILE" ]] && [[ -f "$V4_CACHE_FILE" ]]
-      then
-        CLUSTERID=$(basename $V3_CACHE_FILE)
-        echo "Please specify v3:$CLUSTERID or v4:$CLUSTERID" > /dev/stderr
-      elif [[ "${VERSION:-v3}" == "v3" ]] && [[ -f "$V3_CACHE_FILE" ]]
-      then
-        VERSION=v3
-        CLUSTERID=$(basename $V3_CACHE_FILE)
-        export AWS_PROFILE=$(oo_account $CLUSTERID)
-        export AWS_DEFAULT_REGION=$(oo_sublocation $CLUSTERID)
-      elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f "$V4_CACHE_FILE" ]]
-      then
-        VERSION=v4
-        mkdir -p "$V4_CONFIG_DIR/clusters"
-        CLUSTERID=$(basename $V4_CACHE_FILE)
-        export KUBECONFIG="$V4_CONFIG_DIR/clusters/$CLUSTERID"
-        export OCM_CONFIG="$V4_CONFIG_DIR/config"
-        export OCM_CLUSTERID=$(get-cluster-var v4:$CLUSTERID id)
-        export AWS_DEFAULT_REGION=$(get-cluster-var v4:$CLUSTERID region.id)
-      else
-        echo "Unknown cluster '$CLUSTERID'" > /dev/stderr
-      fi
-      ;;
-  esac
-
-  cluster-context
+    unset CLUSTERID
+  else
+    CACHE_FILE=$(cluster_cache_file_exact $CLUSTERID)
+    if [[ -f $CACHE_FILE ]]
+    then
+      CLUSTERID=$(cluster_from_cache_file $CACHE_FILE)
+      case $CLUSTERID in
+        v3:*)
+          VERSION=v3
+          CLUSTERID=${CLUSTERID:3}  # Trim off v3:
+          export AWS_PROFILE=$(jq --raw-output ".oo_account" $CACHE_FILE)
+          export AWS_DEFAULT_REGION=$(jq --raw-output ".oo_sublocation" $CACHE_FILE)
+          cluster-context
+          ;;
+        v4:*)
+          VERSION=v4
+          CLUSTERID=${CLUSTERID:3}  # Trim off v4:
+          export KUBECONFIG="${CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}"
+          V4_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
+          mkdir -p "$V4_CONFIG_DIR/clusters"
+          export OCM_CONFIG="$V4_CONFIG_DIR/config"
+          export OCM_CLUSTERID=$(jq --raw-output ".id" $CACHE_FILE)
+          export AWS_DEFAULT_REGION=$(jq --raw-output ".region.id" $CACHE_FILE)
+          cluster-context
+          ;;
+        *)
+          echo "Panic! Unrecognized cache file $CACHE_FILE" > /dev/stderr
+          ;;
+      esac
+    fi
+  fi
 fi
 
 TMUX_CLUSTER_FILE=$(tmux-cluster-file)
