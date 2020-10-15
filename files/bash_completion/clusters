@@ -1,28 +1,16 @@
+source ${XDG_DATE_HOME:-$HOME/.local/share}/work-environment/functions.sh
+
 _list_clusters()
 {
-    _list_v3_clusters
-    _list_v4_clusters
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local names=( $(cluster_completion $cur) )
+    COMPREPLY+=( $(compgen -W "${names[*]}" -- $cur) )
 }
 
 _list_v3_clusters()
 {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local names=( $(list-clusters v3) )
-    if [[ "${cur:0:3}" == "v3:" ]]
-    then
-      names=( "${names[@]/#/v3:}" )
-    fi
-    COMPREPLY+=( $(compgen -W "${names[*]}" -- $cur) )
-}
-
-_list_v4_clusters()
-{
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local names=( $(list-clusters v4) )
-    if [[ "${cur:0:3}" == "v4:" ]]
-    then
-      names=( "${names[@]/#/v4:}" )
-    fi
+    local cur="${COMP_WORDS[COMP_CWORD]#v3:}"
+    local names=( $(cluster_completion v3:$cur) )
     COMPREPLY+=( $(compgen -W "${names[*]}" -- $cur) )
 }
 
