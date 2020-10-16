@@ -11,7 +11,7 @@ then
   exit 1
 fi
 
-GETTOKEN="$(get-cluster-var v4:$CLUSTERID console.url | sed 's/console-openshift-console/oauth-openshift/')/oauth/token/request"
+GETTOKEN="$(get-cluster-var $CLUSTERID console.url | sed 's/console-openshift-console/oauth-openshift/')/oauth/token/request"
 BROWSER=$(xdg-mime query default x-scheme-handler/https)
 
 echo $GETTOKEN

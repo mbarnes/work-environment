@@ -24,7 +24,7 @@ then
     echo "        OCM_CONFIG : $OCM_CONFIG"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
 
-    if [[ "$(get-cluster-var v4:$CLUSTERID api.listening)" == "internal" ]]
+    if [[ "$(get-cluster-var $CLUSTERID api.listening)" == "internal" ]]
     then
       echo
       case $(hostname) in

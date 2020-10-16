@@ -35,8 +35,8 @@ else
         v3:*)
           VERSION=v3
           CLUSTERID=${CLUSTERID:3}  # Trim off v3:
-          export AWS_PROFILE=$(jq --raw-output ".oo_account" $CACHE_FILE)
-          export AWS_DEFAULT_REGION=$(jq --raw-output ".oo_sublocation" $CACHE_FILE)
+          export AWS_PROFILE=$(get-cluster-var $CLUSTERID oo_account)
+          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID oo_sublocation)
           cluster-context
           ;;
         v4:*)
@@ -46,8 +46,8 @@ else
           V4_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
           mkdir -p "$V4_CONFIG_DIR/clusters"
           export OCM_CONFIG="$V4_CONFIG_DIR/config"
-          export OCM_CLUSTERID=$(jq --raw-output ".id" $CACHE_FILE)
-          export AWS_DEFAULT_REGION=$(jq --raw-output ".region.id" $CACHE_FILE)
+          export OCM_CLUSTERID=$(get-cluster-var $CLUSTERID id)
+          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID region.id)
           cluster-context
           ;;
         *)

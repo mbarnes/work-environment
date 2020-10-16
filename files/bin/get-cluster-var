@@ -15,7 +15,9 @@
 
 set -euo pipefail
 
-XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
+
+source "$XDG_DATA_HOME/work-environment/functions.sh"
 
 CLUSTER=$1
 VARNAME=$2
@@ -25,33 +27,14 @@ then
     exit 1
 fi
 
-if [[ "${CLUSTER:0:3}" =~ ^v[34]: ]]
+CACHE_FILE=$(cluster_cache_file_exact $CLUSTER)
+if [[ -f "$CACHE_FILE" ]]
 then
-  VERSION=${CLUSTER:0:2}
-  CLUSTER=${CLUSTER:3}
-fi
-
-V3_CACHE_FILE="$XDG_CACHE_HOME/sre/clusters/v3/$CLUSTER"
-V4_FOUND_FILE=$(find $XDG_CACHE_HOME/ocm -name "$CLUSTER" | head --lines=1)
-if [[ -n "$V4_FOUND_FILE" ]]
-then
-  V4_CACHE_FILE=$(realpath "$V4_FOUND_FILE")
-else
-  V4_CACHE_FILE=
-fi
-if [[ "${VERSION:-v3}" == "v3" ]] && [[ -f $V3_CACHE_FILE ]]
-then
-  if [[ -n $VARNAME ]]
+  if [[ -n "$VARNAME" ]]
   then
-    jq --raw-output ".$VARNAME" $V3_CACHE_FILE
-  fi
-elif [[ "${VERSION:-v4}" == "v4" ]] && [[ -f $V4_CACHE_FILE ]]
-then
-  if [[ -n $VARNAME ]]
-  then
-    jq --raw-output ".$VARNAME" $V4_CACHE_FILE
+    jq --raw-output ".$VARNAME" $CACHE_FILE
   fi
 else
-  echo "Unknown cluster '$CLUSTER'" > /dev/stderr
+  # cluster_cache_file_exact handles the error message.
   exit 1
 fi

@@ -11,7 +11,7 @@ then
   exit 1
 fi
 
-CONSOLE=$(get-cluster-var v4:$CLUSTERID console.url)
+CONSOLE=$(get-cluster-var $CLUSTERID console.url)
 BROWSER=$(xdg-mime query default x-scheme-handler/https)
 
 echo $CONSOLE
