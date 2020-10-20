@@ -10,7 +10,9 @@ set -euo pipefail
 
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
+set +u
 OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+set -u
 if [[ -z "$OCM_CLUSTERID" ]]
 then
   echo "Usage: $0 <ocm-clusterid> [hive-cluster-name]" > /dev/stderr

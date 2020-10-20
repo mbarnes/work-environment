@@ -19,8 +19,10 @@ XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 
 source "$XDG_DATA_HOME/work-environment/functions.sh"
 
+set +u
 CLUSTER=$1
 VARNAME=$2
+set -u
 if [[ -z $CLUSTER ]]
 then
     echo "Usage: $0 <clusterid> [<varname>]" > /dev/stderr

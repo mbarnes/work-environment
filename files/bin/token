@@ -4,7 +4,11 @@
 # default browser.
 #
 
+set -euo pipefail
+
+set +u
 CLUSTERID=${1:-$CLUSTERID}
+set -u
 if [[ -z $CLUSTERID ]]
 then
   echo "Usage: $0 [<clusterid>]"
