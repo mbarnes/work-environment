@@ -256,11 +256,6 @@
         name: powerline-status
         virtualenv: "{{ virtualenv_root }}"
 
-    - name: Synchronize powerline configuration
-      synchronize:
-        src: config/powerline
-        dest: "{{ xdg_config_home }}"
-
     - name: Source powerline when starting bash
       lineinfile:
         path: "{{ ansible_user_dir }}/.bashrc"
