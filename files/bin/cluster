@@ -45,6 +45,7 @@ else
           export KUBECONFIG="${CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}"
           V4_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
           mkdir -p "$V4_CONFIG_DIR/clusters"
+          touch $KUBECONFIG
           export OCM_CONFIG="$V4_CONFIG_DIR/config"
           export OCM_CLUSTERID=$(get-cluster-var $CLUSTERID id)
           export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID region.id)
