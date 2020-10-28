@@ -8,21 +8,22 @@ function cluster_prefix {
 function cluster_from_cache_file {
   if [[ -f $1 ]]
   then
-    case $(dirname $1) in
+    local cache_file=$(realpath $1)
+    case $(dirname $cache_file) in
       $XDG_CACHE_HOME/sre/clusters/v3)
-        echo "v3:$(basename $1)"
+        echo "v3:$(basename $cache_file)"
         return 0
         ;;
       $XDG_CACHE_HOME/ocm/production/clusters)
-        echo "v4:prd:$(basename $1)"
+        echo "v4:prd:$(basename $cache_file)"
         return 0
         ;;
       $XDG_CACHE_HOME/ocm/staging/clusters)
-        echo "v4:stg:$(basename $1)"
+        echo "v4:stg:$(basename $cache_file)"
         return 0
         ;;
       $XDG_CACHE_HOME/ocm/integration/clusters)
-        echo "v4:int:$(basename $1)"
+        echo "v4:int:$(basename $cache_file)"
         return 0
         ;;
     esac
