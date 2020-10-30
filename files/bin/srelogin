@@ -1,0 +1,130 @@
+#!/usr/bin/python3
+#
+# Logs into an OpenShift Dedicated v4 cluster via the
+# "OpenShift_SRE" identity provider. Requires a valid
+# Kerberos ticket.
+#
+# Setup instructions:
+#
+# 1. Install requests-html module
+#    $ pip3 install requests-html
+# 2. Install requests-kerberos module
+#    $ pip3 install requests-kerberos
+# 3. Install Chromium for requests-html
+#    $ pyppeteer-install
+# 4. Get a Kerberos ticket
+#    $ kinit
+#
+
+import argparse
+import getpass
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+# 3rd-party modules
+import bs4
+import requests
+import requests_html
+import requests_kerberos
+
+# For debugging
+#from http.client import HTTPConnection
+#HTTPConnection.debuglevel = 1
+
+DEFAULT_CLUSTER = os.environ.get('OCM_CLUSTERID')
+DEFAULT_EMAIL = getpass.getuser() + '@redhat.com'
+DEFAULT_OC_COMMAND = shutil.which('oc')
+DEFAULT_OCM_COMMAND = shutil.which('ocm')
+
+CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters/{}'
+REQUEST_TOKEN_PATH = '/oauth/token/request'
+OPENSHIFT_SRE_IDP = 'OpenShift_SRE'
+
+
+def get_cluster_urls(ocm_command, clusterid):
+    path = CLUSTERS_API_PATH.format(clusterid)
+    ocm_output = subprocess.check_output([
+        ocm_command, 'get', path],
+        stderr=subprocess.STDOUT)
+    json_result = json.loads(ocm_output)
+    api_url = json_result['api']['url']
+    console_url = json_result['console']['url']
+    oauth_url = console_url.replace('console-openshift-console', 'oauth-openshift')
+    return api_url, oauth_url
+
+def extract_form(content):
+    form = bs4.BeautifulSoup(content, features='lxml').find('form')
+    data = {}
+    for item in form.find_all('input'):
+        if item.has_attr('name') and item.has_attr('value'):
+            data[item['name']] = item['value']
+    return form['method'], form['action'], data
+
+def authorize(session, oauth_url, email):
+    response = session.get(oauth_url + REQUEST_TOKEN_PATH)
+    response.raise_for_status()
+    # Pick OpenShift_SRE login
+    idp_list = bs4.BeautifulSoup(response.content, features='lxml').find_all('li', attrs={'class': 'idp'})
+    idp_dict = {idp.a.contents[0]: idp.a['href'] for idp in idp_list}
+    response = session.get(oauth_url + idp_dict[OPENSHIFT_SRE_IDP])
+    response.raise_for_status()
+    # SAML HTTP Post Binding
+    method, url, data = extract_form(response.content)
+    response = session.request(method, url, data=data)
+    response.raise_for_status()
+    # Redirecting...
+    link = bs4.BeautifulSoup(response.content, features='lxml').find('a')
+    response = session.get(link['href'])
+    response.raise_for_status()
+    # Google Authentication
+    if response.url.startswith('https://accounts.google.com/'):
+        method, url, data = extract_form(response.content)
+        data['Email'] = email
+        response = session.request(method, url, data=data)
+        response.raise_for_status()
+    return response
+
+def main(args):
+    api_url, oauth_url = get_cluster_urls(args.ocm_command, args.cluster)
+    with requests_html.HTMLSession() as session:
+        session.auth = requests_kerberos.HTTPKerberosAuth(
+            mutual_authentication=requests_kerberos.OPTIONAL)
+        response = authorize(session, oauth_url, args.email)
+
+        # Display Token
+        method, path, data = extract_form(response.content)
+        response = session.request(method, oauth_url + path, data=data)
+        response.raise_for_status()
+
+        token = bs4.BeautifulSoup(response.content, features='lxml').find('code').contents[0]
+        subprocess_args = [args.oc_command, 'login', api_url, '--token=' + token]
+        subprocess.call(subprocess_args, stdout=sys.stdout, stderr=sys.stderr)
+
+def help_and_default(help_string, default):
+    kwargs = {}
+    if default:
+        kwargs['default'] = default
+        help_string += ' (default: {})'.format(default)
+    else:
+        kwargs['required'] = True
+    kwargs['help'] = help_string
+    return kwargs
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--cluster', '-c', metavar='CLUSTERID',
+        **help_and_default('"ocm" internal cluster ID', DEFAULT_CLUSTER))
+    parser.add_argument(
+        '--email', '-e', metavar='ADDRESS',
+        **help_and_default('your Red Hat email address', DEFAULT_EMAIL))
+    parser.add_argument(
+        '--oc-command', metavar='PATH',
+        **help_and_default('path to "oc" command', DEFAULT_OC_COMMAND))
+    parser.add_argument(
+        '--ocm-command', metavar='PATH',
+        **help_and_default('path to "ocm" command', DEFAULT_OCM_COMMAND))
+    main(parser.parse_args())
