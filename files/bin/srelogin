@@ -9,6 +9,7 @@
 # 1. Install requests-html module
 #    $ pip3 install requests-html
 # 2. Install requests-kerberos module
+#    (requires: python3-devel krb5-devel)
 #    $ pip3 install requests-kerberos
 # 3. Install Chromium for requests-html
 #    $ pyppeteer-install
