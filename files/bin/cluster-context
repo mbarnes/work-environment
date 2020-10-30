@@ -24,20 +24,30 @@ then
     echo "        OCM_CONFIG : $OCM_CONFIG"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
 
+    echo
     if [[ "$(get-cluster-var $CLUSTERID api.listening)" == "internal" ]]
     then
-      echo
       case $(hostname) in
         bastion-*.ops.openshift.com)
           echo "API service is internal (use 'sshproxy')"
+          echo
+          echo "Run \"token\" to obtain a login token."
           ;;
         *)
-          echo "API service is internal (use 'sshproxy' or 'ocm tunnel')"
+          echo "API service is internal (use 'ocm tunnel')"
+          echo
+          echo "Run \"srelogin\" once an SSH tunnel is established."
+          ;;
+      esac
+    else
+      case $(hostname) in
+        bastion-*.ops.openshift.com)
+          echo "Run \"token\" to obtain a login token."
+          ;;
+        *)
+          echo "Run \"srelogin\" to login."
           ;;
       esac
     fi
-
-    echo
-    echo "Run \"token\" to obtain a login token."
   fi
 fi
