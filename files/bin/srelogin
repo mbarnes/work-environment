@@ -27,7 +27,6 @@ import sys
 import urllib
 
 # 3rd-party modules
-import bs4
 import requests
 import requests_html
 import requests_kerberos
@@ -66,13 +65,6 @@ class BaseUrlHTMLSession(requests_html.HTMLSession):
         """Create the URL based off this partial path."""
         return urllib.parse.urljoin(self.base_url, url)
 
-    # Just for typing convenience.
-    def response_hook(self, response, **kwargs) -> requests_html.HTMLResponse:
-        """Add a 'soup' attribute after parsing with BeautifulSoup"""
-        response = super(BaseUrlHTMLSession, self).response_hook(response, **kwargs)
-        response.soup = bs4.BeautifulSoup(response.content, features='lxml')
-        return response
-
 
 def get_cluster_urls(ocm_command, clusterid):
     path = CLUSTERS_API_PATH.format(clusterid)
@@ -86,19 +78,16 @@ def get_cluster_urls(ocm_command, clusterid):
     return api_url, oauth_url
 
 def extract_form(response):
-    form = response.soup.find('form')
-    data = {}
-    for item in form.find_all('input'):
-        if item.has_attr('name') and item.has_attr('value'):
-            data[item['name']] = item['value']
-    return form['method'], form['action'], data
+    form = response.html.find('form', first=True)
+    inputs = [element.attrs for element in form.find('input')]
+    data = {i['name']: i['value'] for i in inputs if 'name' in i and 'value' in i}
+    return form.attrs['method'], form.attrs['action'], data
 
 def authorize(session, email):
     response = session.get(REQUEST_TOKEN_PATH)
     response.raise_for_status()
     # Pick OpenShift_SRE login
-    idp_list = response.soup.find_all('li', attrs={'class': 'idp'})
-    idp_dict = {idp.a.contents[0]: idp.a['href'] for idp in idp_list}
+    idp_dict = {idp.text: idp.links.pop() for idp in response.html.find('.idp')}
     response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
     response.raise_for_status()
     # SAML HTTP Post Binding (production)
@@ -107,15 +96,15 @@ def authorize(session, email):
         response = session.request(method, url, data=data)
         response.raise_for_status()
         # Redirecting...
-        link = response.soup.find('a')
-        if link:
-            response = session.get(link['href'])
+        links = response.html.links
+        if links:
+            response = session.get(links.pop())
             response.raise_for_status()
     # Username/Password Form (staging/integration)
     while response.url.startswith(session.base_url + '/login/'):
-        error = response.soup.find('div', attrs={'class': 'error-placeholder'}).p
+        error = response.html.find('.error-placeholder p', first=True)
         if error:
-            print('\n' + error.contents[-1].strip())
+            print('\n' + error.text.strip())
         method, url, data = extract_form(response)
         if 'username' in data and 'password' in data:
             data['username'] = email.split('@')[0]
@@ -142,7 +131,7 @@ def main(args):
         response = session.request(method, path, data=data)
         response.raise_for_status()
 
-        token = response.soup.find('code').contents[0]
+        token = response.html.find('code', first=True).text
         subprocess_args = [args.oc_command, 'login', api_url, '--token=' + token]
         subprocess.call(subprocess_args, stdout=sys.stdout, stderr=sys.stderr)
 
