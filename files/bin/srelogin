@@ -2,15 +2,16 @@
 #
 # Logs into an OpenShift Dedicated v4 cluster via the
 # "OpenShift_SRE" identity provider. Requires a valid
-# Kerberos ticket.
+# Kerberos ticket for production clusters.
 #
 # Setup instructions:
 #
 # 1. Install requests-html module
 #    $ pip3 install requests-html
-# 2. Install requests-kerberos module
-#    (requires: python3-devel krb5-devel)
-#    $ pip3 install requests-kerberos
+# 2. Install requests-kerberos module (check your distro)
+#    apt: $ sudo apt install python3-requests-kerberos
+#    yum: $ sudo yum install python3-requests-kerberos
+#    pip: $ pip3 install requests-kerberos
 # 3. Install Chromium for requests-html
 #    $ pyppeteer-install
 # 4. Get a Kerberos ticket
@@ -31,16 +32,12 @@ import requests
 import requests_html
 import requests_kerberos
 
-# For debugging
-#from http.client import HTTPConnection
-#HTTPConnection.debuglevel = 1
-
 DEFAULT_CLUSTER = os.environ.get('OCM_CLUSTERID')
 DEFAULT_EMAIL = getpass.getuser() + '@redhat.com'
 DEFAULT_OC_COMMAND = shutil.which('oc')
 DEFAULT_OCM_COMMAND = shutil.which('ocm')
 
-CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters/{}'
+CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters/'
 REQUEST_TOKEN_PATH = '/oauth/token/request'
 OPENSHIFT_SRE_IDP = 'OpenShift_SRE'
 
@@ -67,10 +64,8 @@ class BaseUrlHTMLSession(requests_html.HTMLSession):
 
 
 def get_cluster_urls(ocm_command, clusterid):
-    path = CLUSTERS_API_PATH.format(clusterid)
-    ocm_output = subprocess.check_output([
-        ocm_command, 'get', path],
-        stderr=subprocess.STDOUT)
+    subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + clusterid]
+    ocm_output = subprocess.check_output(subprocess_args, stderr=subprocess.STDOUT)
     json_result = json.loads(ocm_output)
     api_url = json_result['api']['url']
     console_url = json_result['console']['url']
@@ -104,7 +99,7 @@ def authorize(session, email):
     while response.url.startswith(session.base_url + '/login/'):
         error = response.html.find('.error-placeholder p', first=True)
         if error:
-            print('\n' + error.text.strip())
+            print(error.text)
         method, url, data = extract_form(response)
         if 'username' in data and 'password' in data:
             data['username'] = email.split('@')[0]
@@ -127,8 +122,8 @@ def main(args):
         response = authorize(session, args.email)
 
         # Display Token
-        method, path, data = extract_form(response)
-        response = session.request(method, path, data=data)
+        method, url, data = extract_form(response)
+        response = session.request(method, url, data=data)
         response.raise_for_status()
 
         token = response.html.find('code', first=True).text
