@@ -17,6 +17,15 @@
 # 4. Get a Kerberos ticket
 #    $ kinit
 #
+# OPTIONAL
+# If you want to use the --socks-proxy option,
+# such as for scripted access to Hive clusters:
+#
+# 5. Install socks module (check your distro)
+#    apt: sudo apt install python3-socks
+#    yum: sudo yum install python3-pysocks
+#    pip: pip3 install PySocks
+#
 
 import argparse
 import getpass
@@ -117,6 +126,8 @@ def authorize(session, email):
 def main(args):
     api_url, oauth_url = get_cluster_urls(args.ocm_command, args.cluster)
     with BaseUrlHTMLSession(oauth_url) as session:
+        if args.socks_proxy:
+            session.proxies = {oauth_url: args.socks_proxy}
         session.auth = requests_kerberos.HTTPKerberosAuth(
             mutual_authentication=requests_kerberos.OPTIONAL)
         response = authorize(session, args.email)
@@ -128,6 +139,8 @@ def main(args):
 
         token = response.html.find('code', first=True).text
         subprocess_args = [args.oc_command, 'login', api_url, '--token=' + token]
+        if args.socks_proxy:
+            os.environ['HTTPS_PROXY'] = args.socks_proxy
         subprocess.call(subprocess_args, stdout=sys.stdout, stderr=sys.stderr)
 
 def help_and_default(help_string, default):
@@ -154,4 +167,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--ocm-command', metavar='PATH',
         **help_and_default('path to "ocm" command', DEFAULT_OCM_COMMAND))
+    parser.add_argument(
+        '--socks-proxy', metavar='URL',
+        help='SOCKS proxy for clusters requiring SSH port forwarding')
     main(parser.parse_args())
