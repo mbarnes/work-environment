@@ -159,7 +159,7 @@
 
   - name: Generate bash completion code for OpenShift Cluster Manager client
     shell:
-      cmd: "{{ ansible_user_dir }}/{{ bindir }}/ocm completion bash > {{ bash_completion_d }}/ocm"
+      cmd: "{{ ansible_user_dir }}/{{ bindir }}/ocm completion > {{ bash_completion_d }}/ocm"
 
   # Skip this on bastion hosts because it's already installed.
   - when: "'bastions' not in group_names"
