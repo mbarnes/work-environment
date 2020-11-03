@@ -128,6 +128,33 @@
       create: yes
     when: "'bastions' not in group_names"
 
+  - name: Install Python modules for srelogin
+    when: "'bastions' not in group_names"
+    block:
+
+    - name: Install requests-html module
+      pip:
+        name: requests-html
+        executable: pip3
+        state: latest
+
+    # XXX The packaged requests module complains about the
+    #     pip-installed urllib3 module version being too new.
+    #     The packaged version of urllib3 is older.
+    #
+    #     This is specific to Debian Buster, and Debian does
+    #     not package requests-html.
+    - name: Use the packaged urllib3 module
+      pip:
+        name: urllib3
+        executable: pip3
+        state: absent
+
+    - name: Download Chromium for requests-html
+      command: "{{ ansible_user_dir }}{{ bindir }}/pyppeteer-install"
+      args:
+        creates: "{{ xdg_data_home }}/pyppeteer/local-chromium"
+
   # Install OpenShift client tools
 
   - name: Download OpenShift v4 client
