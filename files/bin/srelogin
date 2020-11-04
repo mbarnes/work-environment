@@ -50,6 +50,10 @@ CLUSTERS_API_PATH = '/api/clusters_mgmt/v1/clusters/'
 REQUEST_TOKEN_PATH = '/oauth/token/request'
 OPENSHIFT_SRE_IDP = 'OpenShift_SRE'
 
+# Override requests_html's default useragent
+# string to avoid nastygrams from Red Hat IT.
+# See https://github.com/hellysmile/fake-useragent
+requests_html.user_agent('ff')
 
 # Mimics BaseUrlSession from requests-toolbelt,
 # but implemented as a wrapper for HTMLSession.
