@@ -1,4 +1,5 @@
 XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
 function cluster_prefix {
   local pattern="^(v3:|v4:|(v4:)?production:|(v4:)?prod:|(v4:)?prd:|(v4:)?staging:|(v4:)?stage:|(v4:)?stg:|(v4:)?integration:|(v4:)?int:)"
@@ -108,4 +109,46 @@ function cluster_completion {
   do
     echo $prefix$(basename $match)
   done
+}
+
+function setup_hive_oc_for {
+  local hive_cluster_json=$(hive-cluster $1)
+  local hive_cluster_id=$(jq --raw-output .id <<< $hive_cluster_json)
+  local hive_cluster_name=$(jq --raw-output .display_name <<< $hive_cluster_json)
+
+  case $hive_cluster_name in
+    # Hive clusters hosted on OSDv3
+    hive-integration|hive-production|hive-stage)
+      local ssh_address=root@${hive_cluster_name}-master
+      local ssh_options="-o StrictHostKeyChecking=no"
+      case $(hostname) in
+        bastion-nasa-*.ops.openshift.com)
+          ;;
+        *)
+          ssh_options+=" -J bastion-nasa-1.ops.openshift.com"
+          ;;
+      esac
+      eval "function hive_oc { ssh $ssh_address $ssh_options oc \$@; }"
+      ;;
+
+    *)
+      local socket_dir=$XDG_RUNTIME_DIR/ssh
+      local control_path=$socket_dir/%h.sock
+      local ocm_production_dir=$XDG_CONFIG_HOME/ocm/production
+      local kubeconfig=$ocm_production_dir/clusters/$hive_cluster_name
+      local address=$(OCM_CONFIG=$ocm_production_dir/config sshaddress $hive_cluster_id)
+      local socks_proxy_port=$(find-proxy-port $hive_cluster_id)
+      local socks_proxy=socks5://localhost:$socks_proxy_port
+      mkdir --parents $socket_dir
+      mkdir --parents $(dirname $kubeconfig)
+      touch $kubeconfig
+      trap "ssh -q -O exit -o ControlPath=$control_path $address" EXIT
+      ssh -4fq -D $socks_proxy_port -o ControlMaster=yes -o ControlPath=$control_path $address true > /dev/null
+      OCM_CONFIG=$ocm_production_dir/config KUBECONFIG=$kubeconfig \
+        srelogin --cluster=$hive_cluster_id --socks-proxy=$socks_proxy > /dev/null
+      eval "function hive_oc { KUBECONFIG=$kubeconfig HTTPS_PROXY=$socks_proxy oc \$@; }"
+      hive_oc adm groups add-users osd-sre-cluster-admins $(hive_oc whoami) > /dev/null
+      ;;
+  esac
+  export -f hive_oc
 }
