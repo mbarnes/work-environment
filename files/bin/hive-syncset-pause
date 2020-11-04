@@ -8,52 +8,20 @@
 
 set -euo pipefail
 
-XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
+
+source "$XDG_DATA_HOME/work-environment/functions.sh"
 
 set +u
 OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
 set -u
 if [[ -z "$OCM_CLUSTERID" ]]
 then
-  echo "Usage: $0 <ocm-clusterid> [hive-cluster-name]" > /dev/stderr
+  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
   exit 1
 fi
-HIVE_CLUSTER_NAME=${2:-$(hive-cluster $OCM_CLUSTERID | jq --raw-output .display_name)}
 
-case $HIVE_CLUSTER_NAME in
-  # Hive clusters hosted on OSDv3
-  hive-integration|hive-production|hive-stage)
-    case $(hostname) in
-      bastion-nasa-*.ops.openshift.com)
-        hive_oc() { ssh root@${HIVE_CLUSTER_NAME}-master -o StrictHostKeyChecking=no oc $@ }
-        export -f hive_oc
-        ;;
-      *)
-        # Defer to the bastion host.
-        exit $(ssh bastion-nasa-1.ops.openshift.com bin/$(basename $0) $OCM_CLUSTERID $HIVE_CLUSTER_NAME)
-        ;;
-    esac
-    ;;
-
-  *)
-    SOCKET_DIR=$XDG_RUNTIME_DIR/ssh
-    mkdir --parents $SOCKET_DIR
-    CONTROL_PATH="$SOCKET_DIR/%h.sock"
-    HIVE_CLUSTER_ID=$(get-cluster-var $HIVE_CLUSTER_NAME id)
-    OCM_PRODUCTION_DIR="$XDG_CONFIG_HOME/ocm/production"
-    ADDRESS=$(OCM_CONFIG="$OCM_PRODUCTION_DIR/config" sshaddress $HIVE_CLUSTER_ID)
-    SOCKS_PROXY_PORT=$(find-proxy-port $HIVE_CLUSTER_ID)
-    SOCKS_PROXY=socks5://localhost:$SOCKS_PROXY_PORT
-    trap "ssh -q -O exit -o ControlPath=$CONTROL_PATH $ADDRESS" EXIT
-    ssh -4fq -D $SOCKS_PROXY_PORT -o ControlMaster=yes -o ControlPath=$CONTROL_PATH $ADDRESS true > /dev/null
-    export KUBECONFIG="$OCM_PRODUCTION_DIR/clusters/$HIVE_CLUSTER_NAME"
-    OCM_CONFIG="$OCM_PRODUCTION_DIR/config" srelogin --cluster=$HIVE_CLUSTER_ID --socks-proxy=$SOCKS_PROXY > /dev/null
-    hive_oc() { HTTPS_PROXY=$SOCKS_PROXY oc $@; }
-    export -f hive_oc
-    # Need to be (temporarily) in osd-sre-cluster-admins to annotate.
-    hive_oc adm groups add-users osd-sre-cluster-admins $(oc whoami)
-    ;;
-esac
+setup_hive_oc_for $OCM_CLUSTERID
 
 SELECTOR=api.openshift.com/id=$OCM_CLUSTERID
 ANNOTATION=hive.openshift.io/syncset-pause="true"
@@ -61,7 +29,7 @@ ANNOTATION=hive.openshift.io/syncset-pause="true"
 HIVE_NAMESPACE=$(hive_oc get clusterdeployment --all-namespaces --selector $SELECTOR --output json | jq --raw-output '.items[0].metadata.namespace')
 if [[ -z "$HIVE_NAMESPACE" ]]
 then
-  echo "ClusterDeployment $OCM_CLUSTERID not found on $HIVE_CLUSTER_NAME" > /dev/stderr
+  echo "ClusterDeployment $OCM_CLUSTERID not found" > /dev/stderr
   exit 1
 fi
 
