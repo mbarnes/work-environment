@@ -1,11 +1,32 @@
+# The format for cluster name inputs and outputs is as follows:
+#
+#   [(v3|v4):][ENVIRONMENT:]CLUSTER_NAME
+#   |------- prefix -------|
+#
+# The ENVIRONMENT prefix is only valid for v4 clusters.
+# The ENVIRONMENT prefix may be any of:
+#
+#   production, prod, prd == ocm production environment
+#     staging, stage, stg == ocm staging environment
+#        integration, int == ocm integration environment
+#
+# If the version prefix is omitted but an ENVIRONMENT prefix is
+# specified, such as "prod:cluster-name", then v4 is implied.
+
 XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
+# cluster_prefix: $1:cluster_name
+# Prints the prefix part of a cluster name argument.
 function cluster_prefix {
   local pattern="^(v3:|v4:|(v4:)?production:|(v4:)?prod:|(v4:)?prd:|(v4:)?staging:|(v4:)?stage:|(v4:)?stg:|(v4:)?integration:|(v4:)?int:)"
   grep --extended-regexp --only-matching $pattern <<< "$1"
 }
 
+# cluster_from_cache_file: $1:cache_file
+# Prints the full cluster name given its cache file path and
+# returns 0, or returns 1 if the cache file path is invalid.
+# For brevity, the ENVIRONMENT prefix uses the 3-letter variant.
 function cluster_from_cache_file {
   if [[ -f $1 ]]
   then
@@ -32,11 +53,12 @@ function cluster_from_cache_file {
   return 1
 }
 
+# cluster_cache_files: $1:cluster_name
+# Prints a list of cache files matching a cluster name argument.
+# The cluster name argument may be incomplete, specifying only the
+# prefix part (see above).  The cluster name argument may also be
+# followed by a wildcard character '*'.
 function cluster_cache_files {
-  # Cluster name format: [v3:|v4:][ENVIRONMENT:]NAME
-  # Note: "ENVIRONMENT:NAME" implies "v4:ENVIRONMENT:NAME"
-  #       "v3:ENVIRONMENT:NAME" is invalid.
-
   local prefix=$(cluster_prefix $1)
   local cluster_name=${1#$prefix}${2:-}
   local cluster_version
@@ -80,6 +102,11 @@ function cluster_cache_files {
   fi
 }
 
+# cluster_cache_file_exact: $1: cluster_name
+# Calls cluster_cache_files with the given cluster name argument.
+# Prints the matching cluster name and returns 0 if there is a single
+# match.  Otherwise prints an error message to stderr and returns 1.
+# This ensures a cluster name argument is valid and unambiguous.
 function cluster_cache_file_exact {
   local match
   local matches=( $(cluster_cache_files $1) )
@@ -102,6 +129,10 @@ function cluster_cache_file_exact {
   esac
 }
 
+# cluster_completion: $1:cluster_name
+# Prints a list of cluster names that match a possibly incomplete
+# cluster name argument as described in cluster_cache_files.  This
+# function is used for shell completion of cluster name arguments.
 function cluster_completion {
   local match
   local prefix=$(cluster_prefix $1)
@@ -111,6 +142,12 @@ function cluster_completion {
   done
 }
 
+# setup_hive_oc_for: $1:ocm_clusterid
+# Sets up access to a cluster's Hive cluster by opening an SSH
+# tunnel if necessary, and defining a function named "hive_oc"
+# that's a drop-in replacement for "oc" but configured for the
+# Hive cluster.  Works for both v3 and v4 Hive clusters.  Note,
+# the SSH tunnel is automatically closed through an EXIT trap.
 function setup_hive_oc_for {
   local hive_cluster_json=$(hive-cluster $1)
   local hive_cluster_id=$(jq --raw-output .id <<< $hive_cluster_json)
