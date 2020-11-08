@@ -60,7 +60,7 @@ def main():
                 cache_file.write(content + '\n')
     fulldir = os.path.join(basedir, 'v3')
     if os.path.isdir(fulldir):
-        shutil.rmtree(fulldir)
+        shutil.rmtree(fulldir, ignore_errors=True)
     os.rename(tempdir, fulldir)
 
 
