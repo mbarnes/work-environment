@@ -137,7 +137,7 @@ def main(args):
             if 'external_id' in cluster_data:
                 os.symlink(cluster_name, cluster_data['external_id'])
         if os.path.isdir(ocm_clusters_cache_dir):
-            shutil.rmtree(ocm_clusters_cache_dir)
+            shutil.rmtree(ocm_clusters_cache_dir, ignore_errors=True)
         os.rename(tempdir, ocm_clusters_cache_dir)
 
         # Clean up the config directory
