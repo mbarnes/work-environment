@@ -34,6 +34,7 @@ import os
 import shutil
 import subprocess
 import sys
+import textwrap
 import urllib
 
 # 3rd-party modules
@@ -76,6 +77,13 @@ class BaseUrlHTMLSession(requests_html.HTMLSession):
         return urllib.parse.urljoin(self.base_url, url)
 
 
+def print_error(error):
+    text_wrapper = textwrap.TextWrapper(
+        break_long_words=False,
+        break_on_hyphens=False)
+    for line in text_wrapper.wrap(error):
+        print(line)
+
 def get_cluster_urls(ocm_command, clusterid):
     subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + clusterid]
     ocm_output = subprocess.check_output(subprocess_args, stderr=subprocess.STDOUT)
@@ -112,13 +120,20 @@ def authorize(session, email):
     while response.url.startswith(session.base_url + '/login/'):
         error = response.html.find('.error-placeholder p', first=True)
         if error:
-            print(error.text)
+            print_error(error.text)
         method, url, data = extract_form(response)
         if 'username' in data and 'password' in data:
             data['username'] = email.split('@')[0]
             data['password'] = getpass.getpass('Red Hat SSO Password (PIN+Token): ')
         response = session.request(method, url, data=data)
         response.raise_for_status()
+    # Google Authentication Error
+    # (Probably an unauthorized redirect URI)
+    if response.url.startswith('https://accounts.google.com/signin/oauth/error'):
+        error = response.html.find('form div[jsslot]', first=True)
+        if error:
+            print_error(error.text)
+        sys.exit(1)
     # Google Authentication
     if response.url.startswith('https://accounts.google.com/'):
         method, url, data = extract_form(response)
