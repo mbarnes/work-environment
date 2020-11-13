@@ -34,10 +34,11 @@ echo "HTTPS_PROXY=$PROXY_URL"
 TMUX_CLUSTER_FILE=$(tmux-cluster-file)
 if [[ -n "$TMUX_CLUSTER_FILE" ]]
 then
-  sed --in-place --expression='/^oc() {/d' --expression='/^osdctl() {/d' $TMUX_CLUSTER_FILE
-  trap "sed --in-place --expression='/^oc() {/d' --expression='/^osdctl() {/d' $TMUX_CLUSTER_FILE" exit
+  sed --in-place --regexp-extended --expression='/^(oc|osdctl|srelogin)\(\) \{/d' $TMUX_CLUSTER_FILE
+  trap "sed --in-place --regexp-extended --expression='/^(oc|osdctl|srelogin)\(\) \{/d' $TMUX_CLUSTER_FILE" exit
   echo "oc() { HTTPS_PROXY=$PROXY_URL $(which oc) \$@; }; export -f oc" >> $TMUX_CLUSTER_FILE
   echo "osdctl() { HTTPS_PROXY=$PROXY_URL $(which osdctl) \$@; }; export -f osdctl" >> $TMUX_CLUSTER_FILE
+  echo "srelogin() { $(which srelogin) --socks-proxy=$PROXY_URL \$@; }; export -f srelogin" >> $TMUX_CLUSTER_FILE
 fi
 
 ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION $(sshaddress $OCM_CLUSTERID)
