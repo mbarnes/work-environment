@@ -29,6 +29,7 @@
 
 import argparse
 import getpass
+import http
 import json
 import os
 import shutil
@@ -99,12 +100,28 @@ def extract_form(response):
     data = {i['name']: i['value'] for i in inputs if 'name' in i and 'value' in i}
     return form.attrs['method'], form.attrs['action'], data
 
+def init_kerberos():
+    kinit_path = shutil.which('kinit')
+    klist_path = shutil.which('klist')
+    if kinit_path and klist_path:
+        if subprocess.run([klist_path, '-s']).returncode != 0:
+            print('Kerberos credentials expired')
+            kinit_completion = subprocess.run(
+                [kinit_path], stdin=sys.stdin,
+                stdout=sys.stdout, stderr=sys.stderr)
+            if kinit_completion.returncode != 0:
+                sys.exit(1)
+            return True
+    return False
+
 def authorize(session, email):
     response = session.get(REQUEST_TOKEN_PATH)
     response.raise_for_status()
     # Pick OpenShift_SRE login
     idp_dict = {idp.text: idp.links.pop() for idp in response.html.find('.idp')}
     response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
+    while response.status_code == http.HTTPStatus.UNAUTHORIZED and init_kerberos():
+        response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
     response.raise_for_status()
     # SAML HTTP Post Binding (production)
     if response.url.startswith('https://auth.redhat.com/'):
