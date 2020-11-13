@@ -29,7 +29,6 @@
 
 import argparse
 import getpass
-import http
 import json
 import os
 import shutil
@@ -87,7 +86,7 @@ def print_error(error):
 
 def get_cluster_urls(ocm_command, clusterid):
     subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + clusterid]
-    ocm_output = subprocess.check_output(subprocess_args, stderr=subprocess.STDOUT)
+    ocm_output = subprocess.run(subprocess_args, capture_output=True, check=True).stdout
     json_result = json.loads(ocm_output)
     api_url = json_result['api']['url']
     console_url = json_result['console']['url']
@@ -120,7 +119,7 @@ def authorize(session, email):
     # Pick OpenShift_SRE login
     idp_dict = {idp.text: idp.links.pop() for idp in response.html.find('.idp')}
     response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
-    while response.status_code == http.HTTPStatus.UNAUTHORIZED and init_kerberos():
+    while response.status_code == requests.codes.unauthorized and init_kerberos():
         response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
     response.raise_for_status()
     # SAML HTTP Post Binding (production)
@@ -177,7 +176,7 @@ def main(args):
         subprocess_args = [args.oc_command, 'login', api_url, '--token=' + token]
         if args.socks_proxy:
             os.environ['HTTPS_PROXY'] = args.socks_proxy
-        subprocess.call(subprocess_args, stdout=sys.stdout, stderr=sys.stderr)
+        subprocess.run(subprocess_args, stdout=sys.stdout, stderr=sys.stderr)
 
 def help_and_default(help_string, default):
     kwargs = {}
