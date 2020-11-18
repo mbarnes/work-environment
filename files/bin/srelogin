@@ -85,10 +85,12 @@ def print_error(*args):
     for line in text_wrapper.wrap(error):
         print(line, file=sys.stderr)
 
+def json_subprocess_run(args):
+    return json.loads(subprocess.run(args, capture_output=True, check=True).stdout)
+
 def get_cluster_urls(ocm_command, clusterid):
     subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + clusterid]
-    ocm_output = subprocess.run(subprocess_args, capture_output=True, check=True).stdout
-    json_result = json.loads(ocm_output)
+    json_result = json_subprocess_run(subprocess_args)
     try:
         api_url = json_result['api']['url']
         console_url = json_result['console']['url']
@@ -97,8 +99,7 @@ def get_cluster_urls(ocm_command, clusterid):
         try:
             # Try to look up cluster state
             subprocess_args[-1] += '/status'
-            ocm_output = subprocess.run(subprocess_args, capture_output=True, check=True).stdout
-            json_result = json.loads(ocm_output)
+            json_result = json_subprocess_run(subprocess_args)
             cluster_state = json_result.get('state', 'ready')
             if cluster_state != 'ready':
                 reason = 'Cluster is not ready (state: {})'.format(cluster_state)
