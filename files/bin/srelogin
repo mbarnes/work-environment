@@ -77,19 +77,35 @@ class BaseUrlHTMLSession(requests_html.HTMLSession):
         return urllib.parse.urljoin(self.base_url, url)
 
 
-def print_error(error):
+def print_error(*args):
+    error = ' '.join(args)
     text_wrapper = textwrap.TextWrapper(
         break_long_words=False,
         break_on_hyphens=False)
     for line in text_wrapper.wrap(error):
-        print(line)
+        print(line, file=sys.stderr)
 
 def get_cluster_urls(ocm_command, clusterid):
     subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + clusterid]
     ocm_output = subprocess.run(subprocess_args, capture_output=True, check=True).stdout
     json_result = json.loads(ocm_output)
-    api_url = json_result['api']['url']
-    console_url = json_result['console']['url']
+    try:
+        api_url = json_result['api']['url']
+        console_url = json_result['console']['url']
+    except KeyError as ex:
+        reason = 'Missing cluster API and/or console URL'
+        try:
+            # Try to look up cluster state
+            subprocess_args[-1] += '/status'
+            ocm_output = subprocess.run(subprocess_args, capture_output=True, check=True).stdout
+            json_result = json.loads(ocm_output)
+            cluster_state = json_result.get('state', 'ready')
+            if cluster_state != 'ready':
+                reason = 'Cluster is not ready (state: {})'.format(cluster_state)
+        except:
+            pass
+        print_error(reason)
+        sys.exit(1)
     oauth_url = console_url.replace('console-openshift-console', 'oauth-openshift')
     return api_url, oauth_url
 
@@ -118,6 +134,9 @@ def authorize(session, email):
     response.raise_for_status()
     # Pick OpenShift_SRE login
     idp_dict = {idp.text: idp.links.pop() for idp in response.html.find('.idp')}
+    if OPENSHIFT_SRE_IDP not in idp_dict:
+        print_error('Identity provider "{}" not found'.format(OPENSHIFT_SRE_IDP))
+        sys.exit(1)
     response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
     while response.status_code == requests.codes.unauthorized and init_kerberos():
         response = session.get(idp_dict[OPENSHIFT_SRE_IDP])
