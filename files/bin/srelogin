@@ -43,7 +43,11 @@ import requests_html
 import requests_kerberos
 
 DEFAULT_CLUSTER = os.environ.get('OCM_CLUSTERID')
-DEFAULT_EMAIL = getpass.getuser() + '@redhat.com'
+if 'OCM_USERNAME' in os.environ:
+    DEFAULT_EMAIL =  os.environ.get('OCM_USERNAME') + '@redhat.com'
+else:
+    DEFAULT_EMAIL = getpass.getuser() + '@redhat.com'
+
 DEFAULT_OC_COMMAND = shutil.which('oc')
 DEFAULT_OCM_COMMAND = shutil.which('ocm')
 
