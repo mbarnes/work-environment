@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+# Checks for, enables, or disables the "cluster-admin" capability on a cluster's
+# subscriptions via OCM.
+#
+# In the case of "check", the exit code reflects the result:
+#     0 = Cluster admin enabled
+#     1 = Error
+#   255 = Cluster admin disabled
+#
+# See: https://github.com/openshift/ops-sop/blob/master/v4/howto/cluster-admin.md
+#
+# Usage: cluster-admin (check|enable|disable) [OCM_CLUSTERID]
+#
+
+set -euo pipefail
+
+USAGE="Usage: $0 (check|enable|disable) [OCM_CLUSTERID]"
+
+set +u
+ACTION=$1
+set -u
+case $ACTION in
+  check|enable|disable)
+    ;;
+  *)
+    echo "$USAGE" > /dev/stderr
+    exit 1
+    ;;
+esac
+
+set +u
+OCM_CLUSTERID=${2:-$OCM_CLUSTERID}
+set -u
+if [[ -z "OCM_CLUSTERID" ]]
+then
+  echo "$USAGE" > /dev/stderr
+  exit 1
+fi
+
+OCM_CLUSTER_API_PATH="/api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID"
+OCM_SUBSCRIPTION=$(ocm get $OCM_CLUSTER_API_PATH | jq --raw-output .subscription.id)
+OCM_SUBSCRIPTION_LABELS_API_PATH="/api/accounts_mgmt/v1/subscriptions/$OCM_SUBSCRIPTION/labels"
+
+function cluster_admin_enabled {
+  RESULT=$(ocm get $OCM_SUBSCRIPTION_LABELS_API_PATH | \
+    jq --raw-output '.items[] | select(.key=="capability.cluster.manage_cluster_admin") | .value')
+  test "$RESULT" = "true"
+}
+
+case $ACTION in
+  check)
+    if cluster_admin_enabled
+    then
+      echo "Cluster admin enabled"
+      exit 0
+    else
+      echo "Cluster admin disabled"
+      exit 255
+    fi
+    ;;
+  enable)
+    echo '{"key":"capability.cluster.manage_cluster_admin", "value":"true", "internal":true}' | \
+      ocm post $OCM_SUBSCRIPTION_LABELS_API_PATH | jq --raw-output '.value' > /dev/null
+    ;;
+  disable)
+    if cluster_admin_enabled
+    then
+      ocm delete $OCM_SUBSCRIPTION_LABELS_API_PATH/capability.cluster.manage_cluster_admin
+    fi
+    ;;
+esac
