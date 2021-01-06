@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Automatically acknowledges PagerDuty incidents assigned to the
 # owner of a user-level API token.
@@ -13,7 +13,7 @@
 
 import os
 import sys
-import pypd
+import pdpyras
 import time
 import argparse
 
@@ -51,32 +51,39 @@ if __name__ == '__main__':
             'pass --token or set {0}.\n'.format(ENVIRON_VARNAME))
         sys.exit(2)
 
-    pypd.api_key = args.token
-    user = pypd.User.fetch('me')
-    email = user.json['email']
+    session = pdpyras.APISession(args.token)
+    user = session.rget('/users/me')
+    session.default_from = user['email']
     interval_secs = 60 * args.interval
 
     urgencies = 'low-urgency' if args.low_urgency_only else 'all'
-    print 'Polling every {0} minutes for {1} incidents assigned to {2}'.format(
-        args.interval, urgencies, user.json['name'])
+    print('Polling every {0} minutes for {1} incidents assigned to {2}'.format(
+        args.interval, urgencies, user['name']))
 
     query_params = {
-        'statuses': ['triggered'],
-        'user_ids': [user.id]
+        'statuses[]': ['triggered'],
+        'user_ids[]': [user['id']]
     }
     if args.low_urgency_only:
-        query_params['urgencies'] = ['low']
+        query_params['urgencies[]'] = ['low']
 
     while True:
-        incident_list = pypd.Incident.find(**query_params)
+        incident_list = session.list_all('incidents', params=query_params)
 
         for incident in incident_list:
-            service = incident.json['service']['summary']
+            service = incident['service']['summary']
             if 'openshiftapps' in service:
                 # Just show the cluster name
                 service = service[:service.find('.')]
-            summary = incident.json['summary']
-            print time.asctime(), 'ACK:', service, summary
-            incident.acknowledge(email)
+            summary = incident['summary']
+            print(time.asctime(), 'ACK:', service, summary)
+            session.rput(
+                '/incidents/' + incident['id'],
+                json={
+                    'incident': {
+                        'type': incident['type'],
+                        'status': 'acknowledged'
+                    }
+                })
 
         time.sleep(interval_secs)
