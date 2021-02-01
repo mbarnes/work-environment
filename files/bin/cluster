@@ -45,10 +45,21 @@ else
           export KUBECONFIG="${CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}"
           V4_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
           mkdir -p "$V4_CONFIG_DIR/clusters"
-          touch $KUBECONFIG
           export OCM_CONFIG="$V4_CONFIG_DIR/config"
           export OCM_CLUSTERID=$(get-cluster-var $CLUSTERID id)
           export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID region.id)
+          if [[ ! -e $KUBECONFIG ]]
+          then
+            case $(basename $V4_CONFIG_DIR) in
+              integration|staging)
+                # Requires ocm role SREPDeveloper
+                ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID/credentials | jq -r .kubeconfig > $KUBECONFIG
+                ;;
+              production)
+                touch $KUBECONFIG
+                ;;
+            esac
+          fi
           cluster-context
           ;;
         *)
