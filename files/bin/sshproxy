@@ -37,6 +37,7 @@ then
   sed --in-place --regexp-extended --expression='/^(oc|osdctl|srelogin)\(\) \{/d' $TMUX_CLUSTER_FILE
   trap "sed --in-place --regexp-extended --expression='/^(oc|osdctl|srelogin)\(\) \{/d' $TMUX_CLUSTER_FILE" exit
   echo "oc() { HTTPS_PROXY=$PROXY_URL $(which oc) \$@; }; export -f oc" >> $TMUX_CLUSTER_FILE
+  echo "ocm() { if [ \$1 == 'backplane' ]; then HTTPS_PROXY=$PROXY_URL $(which ocm) \$@; else $(which ocm) \$@; fi }; export -f ocm" >> $TMUX_CLUSTER_FILE
   echo "osdctl() { HTTPS_PROXY=$PROXY_URL $(which osdctl) \$@; }; export -f osdctl" >> $TMUX_CLUSTER_FILE
   echo "srelogin() { $(which srelogin) --socks-proxy=$PROXY_URL \$@; }; export -f srelogin" >> $TMUX_CLUSTER_FILE
 fi
