@@ -167,27 +167,6 @@
     shell:
       cmd: "{{ ansible_user_dir }}/{{ bindir }}/ocm completion > {{ bash_completion_d }}/ocm"
 
-  - name: Look up latest osdctl release
-    uri:
-      url: https://api.github.com/repos/openshift/osd-utils-cli/releases/latest
-    register: osdctl_release_latest
-
-  - name: Determine osdctl download URL
-    set_fact:
-      osdctl_download_url: "{{ item.browser_download_url }}"
-    when: item.name | regex_search('^osdctl-linux')
-    loop: "{{ osdctl_release_latest.json.assets }}"
-
-  - name: Download osdctl client
-    get_url:
-      url: "{{ osdctl_download_url }}"
-      dest: "{{ ansible_user_dir }}/{{ bindir }}/osdctl"
-      mode: u=rwx,g=rx,o=rx
-
-  - name: Generate bash completion code for osdctl
-    shell:
-      cmd: "{{ ansible_user_dir }}/{{ bindir }}/osdctl completion bash > {{ bash_completion_d }}/osdctl"
-
   # OpenShift Cluster Manager client configuration
 
   - name: Create OpenShift Cluster Manager environment directories
