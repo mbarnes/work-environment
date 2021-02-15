@@ -7,21 +7,3 @@ bash_aliases_d="{{ xdg_config_home }}/bash_aliases.d"
 bash_profile_d="{{ xdg_config_home }}/bash_profile.d"
 bash_completion_d="{{ xdg_config_home }}/bash_completion.d"
 ocm_default_environment=staging
-
-[bastions]
-bastion-nasa-1.ops.openshift.com
-bastion-nasa-2.ops.openshift.com
-bastion-useast2-1.ops.openshift.com
-bastion-useast2-2.ops.openshift.com
-bastion-euwest2-1.ops.openshift.com
-bastion-euwest2-2.ops.openshift.com
-bastion-apnortheast1-1.ops.openshift.com
-bastion-apnortheast1-2.ops.openshift.com
-
-[bastions:vars]
-bindir=bin
-profile=.bash_profile
-install_v3_files=true
-ocm_default_environment=production
-# Define if different from localhost
-#bastion_user_id=

@@ -3,8 +3,6 @@
 #
 # Customize a shell environment for OpenShift operations work.
 #
-# Intended for Red Hat owned AWS EC2 instances serving as "bastion" hosts.
-#
 - hosts: all
   vars:
     # XDG Base Directories
@@ -27,13 +25,6 @@
       dest: "{{ ansible_user_dir }}/{{ bindir }}/"
       links: yes
 
-  - name: Synchronize v3/bin directory
-    synchronize:
-      src: v3/bin/
-      dest: "{{ ansible_user_dir }}/{{ bindir }}/"
-      links: yes
-    when: install_v3_files is defined
-
   - name: Synchronize work-environment directory
     synchronize:
       src: work-environment/
@@ -47,12 +38,6 @@
       create: yes
 
   # Cached cluster information
-
-  - name: Create v3 cluster cache directory
-    file:
-      path: "{{ xdg_cache_home }}/sre/clusters/v3"
-      state: directory
-    when: install_v3_files is defined
 
   - name: Create v4 cluster cache directories
     file:
@@ -111,14 +96,10 @@
 
   - name: Schedule daily cluster cache update
     cron:
-      name: "Daily {{ item }} cluster cache update"
+      name: "Daily v4 cluster cache update"
       special_time: daily
       user: "{{ ansible_user_id }}"
-      job: "update-{{ item }}-cluster-cache"
-    when: item == 'v4' or install_v3_files is defined
-    with_items:
-    - v3
-    - v4
+      job: "update-v4-cluster-cache"
 
   - name: Edit SSH configuration
     blockinfile:
@@ -126,10 +107,8 @@
       block: "{{ lookup('template', 'ssh_config.j2') }}"
       marker: "{{ blockinfile_marker }}"
       create: yes
-    when: "'bastions' not in group_names"
 
   - name: Install Python modules for srelogin
-    when: "'bastions' not in group_names"
     block:
 
     - name: Install requests-html module
@@ -188,62 +167,28 @@
     shell:
       cmd: "{{ ansible_user_dir }}/{{ bindir }}/ocm completion > {{ bash_completion_d }}/ocm"
 
-  # Skip this on bastion hosts because it's already installed.
-  - when: "'bastions' not in group_names"
-    block:
+  - name: Look up latest osdctl release
+    uri:
+      url: https://api.github.com/repos/openshift/osd-utils-cli/releases/latest
+    register: osdctl_release_latest
 
-    - name: Look up latest osdctl release
-      uri:
-        url: https://api.github.com/repos/openshift/osd-utils-cli/releases/latest
-      register: osdctl_release_latest
+  - name: Determine osdctl download URL
+    set_fact:
+      osdctl_download_url: "{{ item.browser_download_url }}"
+    when: item.name | regex_search('^osdctl-linux')
+    loop: "{{ osdctl_release_latest.json.assets }}"
 
-    - name: Determine osdctl download URL
-      set_fact:
-        osdctl_download_url: "{{ item.browser_download_url }}"
-      when: item.name | regex_search('^osdctl-linux')
-      loop: "{{ osdctl_release_latest.json.assets }}"
+  - name: Download osdctl client
+    get_url:
+      url: "{{ osdctl_download_url }}"
+      dest: "{{ ansible_user_dir }}/{{ bindir }}/osdctl"
+      mode: u=rwx,g=rx,o=rx
 
-    - name: Download osdctl client
-      get_url:
-        url: "{{ osdctl_download_url }}"
-        dest: "{{ ansible_user_dir }}/{{ bindir }}/osdctl"
-        mode: u=rwx,g=rx,o=rx
-
-    - name: Generate bash completion code for osdctl
-      shell:
-        cmd: "{{ ansible_user_dir }}/{{ bindir }}/osdctl completion bash > {{ bash_completion_d }}/osdctl"
+  - name: Generate bash completion code for osdctl
+    shell:
+      cmd: "{{ ansible_user_dir }}/{{ bindir }}/osdctl completion bash > {{ bash_completion_d }}/osdctl"
 
   # OpenShift Cluster Manager client configuration
-
-  - name: Store v4 cluster secrets on encrypted mount
-    when: "'bastions' in group_names"
-    block:
-
-    - name: Check for .private-encrypted directory
-      stat:
-        path: "{{ ansible_user_dir }}/.private-encrypted"
-      register: private_encrypted_dir
-
-    # The .private-encrypted directory is encrypted, whereas .private is the
-    # unencrypted FUSE mount.  If .private-encrypted exists, assume .private
-    # is mounted and let the playbook fail if not.
-
-    - name: Create ocm directory on encrypted mount
-      file:
-        path: "{{ ansible_user_dir }}/.private/ocm"
-        state: directory
-      when:
-      - private_encrypted_dir.stat.isdir is defined
-      - private_encrypted_dir.stat.isdir
-
-    - name: Link ocm configuration directory to encrypted mount
-      file:
-        src: "{{ ansible_user_dir }}/.private/ocm"
-        path: "{{ ocm_config_dir }}"
-        state: link
-      when:
-      - private_encrypted_dir.stat.isdir is defined
-      - private_encrypted_dir.stat.isdir
 
   - name: Create OpenShift Cluster Manager environment directories
     file:
@@ -265,35 +210,6 @@
       src: "{{ ocm_config_dir }}/{{ ocm_default_environment }}/config"
       path: "{{ ansible_user_dir }}/.ocm.json"
       state: link
-
-  # Powerline
-
-  - name: Set up Powerline
-    when: "'bastions' in group_names"
-    block:
-
-    - name: Add virtualenv binaries to PATH
-      lineinfile:
-        path: "{{ ansible_user_dir }}/.bashrc"
-        line: "export PATH=\"$PATH:{{ virtualenv_root }}/bin\""
-        create: yes
-
-    - name: Install powerline-status pip package
-      pip:
-        name: powerline-status
-        virtualenv: "{{ virtualenv_root }}"
-
-    - name: Source powerline when starting bash
-      lineinfile:
-        path: "{{ ansible_user_dir }}/.bashrc"
-        line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/bash/powerline.sh"
-        create: yes
-
-    - name: Source powerline when starting tmux
-      lineinfile:
-        path: "{{ ansible_user_dir }}/.tmux.conf"
-        line: "source {{ virtualenv_root }}/lib/python2.7/site-packages/powerline/bindings/tmux/powerline.conf"
-        create: yes
 
   - pause:
       prompt: |
