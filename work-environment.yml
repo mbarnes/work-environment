@@ -39,7 +39,7 @@
 
   # Cached cluster information
 
-  - name: Create v4 cluster cache directories
+  - name: Create OCM cluster cache directories
     file:
       path: "{{ xdg_cache_home }}/ocm/{{ item }}/clusters"
       state: directory
@@ -94,12 +94,12 @@
       name: PATH
       value: "{{ ansible_user_dir }}/{{ bindir }}:/usr/bin:/bin"
 
-  - name: Schedule daily cluster cache update
+  - name: Schedule daily OCM cluster cache update
     cron:
-      name: "Daily v4 cluster cache update"
+      name: "Daily OCM cluster cache update"
       special_time: daily
       user: "{{ ansible_user_id }}"
-      job: "update-v4-cluster-cache"
+      job: "update-ocm-cluster-cache"
 
   - name: Edit SSH configuration
     blockinfile:

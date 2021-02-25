@@ -8,11 +8,11 @@ set -euo pipefail
 XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
-VERSION=${1:-v4}
+VERSION=${1:-ocm}
 if [[ "$VERSION" == "v3" ]]
 then
   CLUSTER_CACHE_DIR="$XDG_CACHE_HOME/sre/clusters/v3"
-else
+elif [[ "$VERSION" == "ocm" ]]
   if [[ ! -v OCM_CONFIG ]]
   then
     OCM_CONFIG="$HOME/.ocm.json"

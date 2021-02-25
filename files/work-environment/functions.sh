@@ -1,9 +1,9 @@
 # The format for cluster name inputs and outputs is as follows:
 #
-#   [(v3|v4):][ENVIRONMENT:]CLUSTER_NAME
-#   |------- prefix -------|
+#   [(v3|ocm):][ENVIRONMENT:]CLUSTER_NAME
+#   |-------- prefix -------|
 #
-# The ENVIRONMENT prefix is only valid for v4 clusters.
+# The ENVIRONMENT prefix is only valid for ocm clusters.
 # The ENVIRONMENT prefix may be any of:
 #
 #   production, prod, prd == ocm production environment
@@ -11,7 +11,7 @@
 #        integration, int == ocm integration environment
 #
 # If the version prefix is omitted but an ENVIRONMENT prefix is
-# specified, such as "prod:cluster-name", then v4 is implied.
+# specified, such as "prod:cluster-name", then ocm is implied.
 
 XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
@@ -19,7 +19,7 @@ XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 # cluster_prefix: $1:cluster_name
 # Prints the prefix part of a cluster name argument.
 function cluster_prefix {
-  local pattern="^(v3:|v4:|(v4:)?production:|(v4:)?prod:|(v4:)?prd:|(v4:)?staging:|(v4:)?stage:|(v4:)?stg:|(v4:)?integration:|(v4:)?int:)"
+  local pattern="^(v3:|ocm:|(ocm:)?production:|(ocm:)?prod:|(ocm:)?prd:|(ocm:)?staging:|(ocm:)?stage:|(ocm:)?stg:|(ocm:)?integration:|(ocm:)?int:)"
   grep --extended-regexp --only-matching $pattern <<< "$1"
 }
 
@@ -37,15 +37,15 @@ function cluster_from_cache_file {
         return 0
         ;;
       $XDG_CACHE_HOME/ocm/production/clusters)
-        echo "v4:prd:$(basename $cache_file)"
+        echo "ocm:prd:$(basename $cache_file)"
         return 0
         ;;
       $XDG_CACHE_HOME/ocm/staging/clusters)
-        echo "v4:stg:$(basename $cache_file)"
+        echo "ocm:stg:$(basename $cache_file)"
         return 0
         ;;
       $XDG_CACHE_HOME/ocm/integration/clusters)
-        echo "v4:int:$(basename $cache_file)"
+        echo "ocm:int:$(basename $cache_file)"
         return 0
         ;;
     esac
@@ -68,19 +68,19 @@ function cluster_cache_files {
     v3:)
       cluster_version=v3
       ;;
-    v4:)
-      cluster_version=v4
+    ocm:)
+      cluster_version=ocm
       ;;
-    v4:production:|v4:prod:|v4:prd:|production:|prod:|prd:)
-      cluster_version=v4
+    ocm:production:|ocm:prod:|ocm:prd:|production:|prod:|prd:)
+      cluster_version=ocm
       cluster_environ=production
       ;;
-    v4:staging:|v4:stage:|v4:stg:|staging:|stage:|stg:)
-      cluster_version=v4
+    ocm:staging:|ocm:stage:|ocm:stg:|staging:|stage:|stg:)
+      cluster_version=ocm
       cluster_environ=staging
       ;;
-    v4:integration:|v4:int:|integration:|int:)
-      cluster_version=v4
+    ocm:integration:|ocm:int:|integration:|int:)
+      cluster_version=ocm
       cluster_environ=integration
       ;;
     *)
@@ -88,17 +88,17 @@ function cluster_cache_files {
   esac
 
   local v3_cache_path="$XDG_CACHE_HOME/sre/clusters/v3"
-  local v4_cache_path="$XDG_CACHE_HOME/ocm${cluster_environ:+/$cluster_environ}"
+  local ocm_cache_path="$XDG_CACHE_HOME/ocm${cluster_environ:+/$cluster_environ}"
 
   if [[ "${cluster_version:-v3}" == "v3" ]] && [[ -d "$v3_cache_path" ]]
   then
     find "$v3_cache_path" -type f -name "$cluster_name"
   fi
 
-  if [[ "${cluster_version:-v4}" == "v4" ]] && [[ -d "$v4_cache_path" ]]
+  if [[ "${cluster_version:-ocm}" == "ocm" ]] && [[ -d "$ocm_cache_path" ]]
   then
-    find "$v4_cache_path" -type f -name "$cluster_name"
-    find "$v4_cache_path" -type l -name "$cluster_name"
+    find "$ocm_cache_path" -type f -name "$cluster_name"
+    find "$ocm_cache_path" -type l -name "$cluster_name"
   fi
 }
 

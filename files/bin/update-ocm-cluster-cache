@@ -92,8 +92,8 @@ def get_managed_clusters(ocm_command, ocm_config_file):
         items.extend(json_result['items'])
         page += 1
 
-    # v4 clusters are identified by an alphanumeric ID and can
-    # have identical names. Disambiguate such cases by tacking
+    # OCM clusters are identified by an alphanumeric ID and can
+    # have identical names.  Disambiguate such cases by tacking
     # on the router shard from the base domain.
     clusters_by_name = {}
     managed_clusters = {}
