@@ -1,0 +1,83 @@
+#!/usr/bin/python3
+
+import argparse
+import errno
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+HOME = os.path.expandvars('$HOME')
+XDG_CACHE_HOME_DEFAULT = os.path.join(HOME, '.cache')
+XDG_CACHE_HOME = os.environ.get('XDG_CACHE_HOME', XDG_CACHE_HOME_DEFAULT)
+XDG_CONFIG_HOME_DEFAULT = os.path.join(HOME, '.config')
+XDG_CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME', XDG_CONFIG_HOME_DEFAULT)
+
+ARO_CACHE_DIR = os.path.join(XDG_CACHE_HOME, 'aro')
+ARO_CONFIG_DIR = os.path.join(XDG_CONFIG_HOME, 'aro')
+AZ_COMMAND_DEFAULT = shutil.which('az')
+
+
+def safe_mkdir(path, mode=0o777):
+    try:
+        os.makedirs(path, mode)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+def list_aro_clusters(az_command):
+    aro_clusters = []
+    try:
+        az_output = subprocess.check_output(
+            [az_command, 'aro', 'list'],
+            stderr=subprocess.STDOUT)
+        aro_clusters = json.loads(az_output)
+    except subprocess.CalledProcessError as ex:
+        sys.stderr.write(
+            "{}: Command \"{}\" returned non-zero exit status {}\n".format(
+            os.path.basename(sys.argv[0], az_command, ex.returncode)))
+        sys.stderr.write(ex.output)
+
+    return {cluster['name']: cluster for cluster in aro_clusters}
+
+
+def main(args):
+    aro_clusters_cache_dir = os.path.join(ARO_CACHE_DIR, 'clusters')
+    aro_clusters_config_dir = os.path.join(ARO_CONFIG_DIR, 'clusters')
+    aro_clusters = list_aro_clusters(args.az_command)
+
+    # Replace the cache directory
+    safe_mkdir(ARO_CACHE_DIR)
+    tempdir = tempfile.mkdtemp(dir=ARO_CACHE_DIR)
+    os.chdir(tempdir)
+    for cluster_name, cluster_data in aro_clusters.items():
+        filename = os.path.join(tempdir, cluster_name)
+        with open(filename, 'w') as cache_file:
+            content = json.dumps(cluster_data, indent=2)
+            cache_file.write(content + '\n')
+    if os.path.isdir(aro_clusters_cache_dir):
+        shutil.rmtree(aro_clusters_cache_dir)
+    os.rename(tempdir, aro_clusters_cache_dir)
+
+    # Clean up the config directory
+    safe_mkdir(aro_clusters_config_dir)
+    for dirpath, dirnames, filenames in os.walk(aro_clusters_config_dir):
+        for cluster_name in filenames:
+            if cluster_name not in aro_clusters:
+                os.unlink(os.path.join(dirpath, cluster_name))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--az-command', metavar='PATH',
+        default=AZ_COMMAND_DEFAULT,
+        help='path to "az" command (default: {})'.format(AZ_COMMAND_DEFAULT))
+    args = parser.parse_args()
+
+    main(args)

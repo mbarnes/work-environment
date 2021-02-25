@@ -17,10 +17,12 @@ then
 else
   # Unset any previous cluster variables.
   unset KUBECONFIG
-  unset OCM_CONFIG
-  unset OCM_CLUSTERID
+  unset ARO_LOCATION
+  unset ARO_RESOURCE_GROUP
   unset AWS_PROFILE
   unset AWS_DEFAULT_REGION
+  unset OCM_CONFIG
+  unset OCM_CLUSTERID
 
   if [[ "$CLUSTERID" == "none" ]]
   then
@@ -38,6 +40,30 @@ else
           export AWS_PROFILE=$(get-cluster-var $CLUSTERID oo_account)
           export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID oo_sublocation)
           cluster-context
+          ;;
+        aro:*)
+          VERSION=aro
+          CLUSTERID=${CLUSTERID:4}  # Trim off aro:
+          export KUBECONFIG="${CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}"
+          ARO_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
+          mkdir -p "ARO_CONFIG_DIR/clusters"
+          export ARO_LOCATION=$(get-cluster-var $CLUSTERID location)
+          export ARO_RESOURCE_GROUP=$(get-cluster-var $CLUSTERID resourceGroup)
+          cluster-context
+          if [[ ! -e $KUBECONFIG ]]
+          then
+            touch $KUBECONFIG
+          fi
+          echo
+          if oc whoami >& /dev/null
+          then
+            echo "You are logged in as \"$(oc whoami)\""
+          else
+            CREDS=$(az aro list-credentials --name $CLUSTERID --resource-group $ARO_RESOURCE_GROUP)
+            oc login $(get-cluster-var $CLUSTERID apiserverProfile.url) \
+              --username $(jq --raw-output .kubeadminUsername <<<"$CREDS") \
+              --password $(jq --raw-output .kubeadminPassword <<<"$CREDS")
+          fi
           ;;
         ocm:*)
           VERSION=ocm
@@ -86,6 +112,14 @@ then
         if [[ -n "$KUBECONFIG" ]]
         then
             echo "export KUBECONFIG=$KUBECONFIG" >> $TMUX_CLUSTER_FILE
+        fi
+        if [[ -n "$ARO_LOCATION" ]]
+        then
+            echo "export ARO_LOCATION=$ARO_LOCATION" >> $TMUX_CLUSTER_FILE
+        fi
+        if [[ -n "$ARO_RESOURCE_GROUP" ]]
+        then
+            echo "export ARO_RESOURCE_GROUP=$ARO_RESOURCE_GROUP" >> $TMUX_CLUSTER_FILE
         fi
         if [[ -n "$OCM_CLUSTERID" ]]
         then

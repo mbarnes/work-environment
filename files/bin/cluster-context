@@ -16,7 +16,13 @@ then
     echo "         CLUSTERID : $CLUSTERID"
     echo "       AWS_PROFILE : $AWS_PROFILE"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
-  elif [[ -v KUBECONFIG ]]
+  elif [[ -v ARO_RESOURCE_GROUP ]]
+  then
+    # OpenShift v4 context
+    echo "          CLUSTERID : $CLUSTERID"
+    echo "       ARO_LOCATION : $ARO_LOCATION"
+    echo " ARO_RESOURCE_GROUP : $ARO_RESOURCE_GROUP"
+  elif [[ -v OCM_CLUSTERID ]]
   then
     # OpenShift v4 context
     echo "         CLUSTERID : $CLUSTERID"
