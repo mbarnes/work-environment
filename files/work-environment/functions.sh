@@ -155,7 +155,7 @@ function cluster_completion {
   done
 }
 
-# setup_hive_oc_for: $1:ocm_clusterid
+# setup_hive_oc_for: $1:ocm_cluster
 # Sets up access to a cluster's Hive cluster by opening an SSH
 # tunnel if necessary, and defining a function named "hive_oc"
 # that's a drop-in replacement for "oc" but configured for the

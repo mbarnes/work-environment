@@ -10,20 +10,20 @@ XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 source "$XDG_DATA_HOME/work-environment/functions.sh"
 
 set +u
-OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+OCM_CLUSTER=${1:-$OCM_CLUSTER}
 set -u
-if [[ -z "$OCM_CLUSTERID" ]]
+if [[ -z "$OCM_CLUSTER" ]]
 then
-  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
+  echo "Usage: $0 <ocm-cluster>" > /dev/stderr
   exit 1
 fi
 
-setup_hive_oc_for $OCM_CLUSTERID
+setup_hive_oc_for $OCM_CLUSTER
 
-HIVE_NAMESPACE=$(hive_oc get clusterdeployment --all-namespaces --selector=api.openshift.com/id=$OCM_CLUSTERID --output json | jq --raw-output '.items[0].metadata.namespace')
+HIVE_NAMESPACE=$(hive_oc get clusterdeployment --all-namespaces --selector=api.openshift.com/id=$OCM_CLUSTER --output json | jq --raw-output '.items[0].metadata.namespace')
 if [[ "$HIVE_NAMESPACE" == "null" ]]
 then
-  echo "ClusterDeployment $OCM_CLUSTERID not found" > /dev/stderr
+  echo "ClusterDeployment $OCM_CLUSTER not found" > /dev/stderr
   exit 1
 fi
 

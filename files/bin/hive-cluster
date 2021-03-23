@@ -18,16 +18,16 @@ set -euo pipefail
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
 set +u
-OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+OCM_CLUSTER=${1:-$OCM_CLUSTER}
 set -u
-if [[ -z "$OCM_CLUSTERID" ]]
+if [[ -z "$OCM_CLUSTER" ]]
 then
-  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
+  echo "Usage: $0 <ocm-cluster>" > /dev/stderr
   exit 1
 fi
 
 CLUSTERS_API_PATH="/api/clusters_mgmt/v1/clusters"
-HIVE_SERVER=$(ocm get $CLUSTERS_API_PATH/$OCM_CLUSTERID/provision_shard | jq --raw-output ".hive_config.server")
+HIVE_SERVER=$(ocm get $CLUSTERS_API_PATH/$OCM_CLUSTER/provision_shard | jq --raw-output ".hive_config.server")
 
 case $HIVE_SERVER in
   # Hive clusters hosted on OSDv3

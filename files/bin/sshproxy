@@ -4,17 +4,17 @@
 # for the specified cluster.  Optionally, the port number can
 # be specified explicitly.
 #
-# Usage: sshproxy [OCM_CLUSTERID] [PORT]
+# Usage: sshproxy [OCM_CLUSTER] [PORT]
 #
 
 set -euo pipefail
 
 set +u
-OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+OCM_CLUSTER=${1:-$OCM_CLUSTER}
 set -u
-if [[ -z "$OCM_CLUSTERID" ]]
+if [[ -z "$OCM_CLUSTER" ]]
 then
-  echo "Usage: $0 <ocm-clusterid> [<port>]" > /dev/stderr
+  echo "Usage: $0 <ocm-cluster> [<port>]" > /dev/stderr
   exit 1
 fi
 
@@ -27,7 +27,7 @@ case $(hostname) in
     ;;
 esac
 
-PROXY_PORT=${2:-$(find-proxy-port $OCM_CLUSTERID)}
+PROXY_PORT=${2:-$(find-proxy-port $OCM_CLUSTER)}
 PROXY_URL="socks5://localhost:$PROXY_PORT"
 echo "HTTPS_PROXY=$PROXY_URL"
 
@@ -42,4 +42,4 @@ then
   echo "srelogin() { $(which srelogin) --socks-proxy=$PROXY_URL \$@; }; export -f srelogin" >> $TMUX_CLUSTER_FILE
 fi
 
-ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION $(sshaddress $OCM_CLUSTERID)
+ssh -4 -D $PROXY_PORT $JUMPHOST_OPTION $(sshaddress $OCM_CLUSTER)

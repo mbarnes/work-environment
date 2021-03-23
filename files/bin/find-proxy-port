@@ -3,17 +3,17 @@
 # Tries to find an available port number in the ephemeral port range
 # to use for a SOCKS server.  See sshproxy for more details.
 #
-# Usage: find-proxy-port [OCM_CLUSTERID]
+# Usage: find-proxy-port [OCM_CLUSTER]
 #
 
 set -euo pipefail
 
 set +u
-OCM_CLUSTERID=${1:-$OCM_CLUSTERID}
+OCM_CLUSTER=${1:-$OCM_CLUSTER}
 set -u
-if [[ -z "$OCM_CLUSTERID" ]]
+if [[ -z "$OCM_CLUSTER" ]]
 then
-  echo "Usage: $0 <ocm-clusterid>" > /dev/stderr
+  echo "Usage: $0 <ocm-cluster>" > /dev/stderr
   exit 1
 fi
 
@@ -23,7 +23,7 @@ PORT_HI=65535
 sum=0
 # Adding whoami tries to ensure different users
 # get different proxy ports for the same cluster.
-bytes=$(echo -n $(whoami) $OCM_CLUSTERID | od --address-radix=n --output-duplicates --width=64 --format u1)
+bytes=$(echo -n $(whoami) $OCM_CLUSTER | od --address-radix=n --output-duplicates --width=64 --format u1)
 for b in $bytes; do (( sum += b )); done
 port=$(( sum % (PORT_HI - PORT_LO) + PORT_LO ))
 while ss --all --ipv4 --numeric | awk '/127.0.0.1/ { print $5 }' | grep --quiet $port

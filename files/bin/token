@@ -7,15 +7,15 @@
 set -euo pipefail
 
 set +u
-CLUSTERID=${1:-$CLUSTERID}
+CLUSTER=${1:-$CLUSTER}
 set -u
-if [[ -z $CLUSTERID ]]
+if [[ -z $CLUSTER ]]
 then
-  echo "Usage: $0 [<clusterid>]"
+  echo "Usage: $0 [<cluster>]"
   exit 1
 fi
 
-GETTOKEN="$(get-cluster-var $CLUSTERID console.url | sed 's/console-openshift-console/oauth-openshift/')/oauth/token/request"
+GETTOKEN="$(get-cluster-var $CLUSTER console.url | sed 's/console-openshift-console/oauth-openshift/')/oauth/token/request"
 BROWSER=$(xdg-mime query default x-scheme-handler/https)
 
 echo $GETTOKEN

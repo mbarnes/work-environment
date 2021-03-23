@@ -8,12 +8,12 @@ source "$XDG_DATA_HOME/work-environment/functions.sh"
 
 if [[ -n $1 ]]
 then
-  export CLUSTERID=$1
+  export CLUSTER=$1
 fi
 
-if [[ -z "$CLUSTERID" ]]
+if [[ -z "$CLUSTER" ]]
 then
-  echo "Usage: source cluster <clusterid>" > /dev/stderr
+  echo "Usage: source cluster <cluster>" > /dev/stderr
 else
   # Unset any previous cluster variables.
   unset KUBECONFIG
@@ -22,33 +22,33 @@ else
   unset AWS_PROFILE
   unset AWS_DEFAULT_REGION
   unset OCM_CONFIG
-  unset OCM_CLUSTERID
+  unset OCM_CLUSTER
 
-  if [[ "$CLUSTERID" == "none" ]]
+  if [[ "$CLUSTER" == "none" ]]
   then
     # Special name to reset the environment.
-    unset CLUSTERID
+    unset CLUSTER
   else
-    CACHE_FILE=$(cluster_cache_file_exact $CLUSTERID)
+    CACHE_FILE=$(cluster_cache_file_exact $CLUSTER)
     if [[ -f $CACHE_FILE ]]
     then
-      CLUSTERID=$(cluster_from_cache_file $CACHE_FILE)
-      case $CLUSTERID in
+      CLUSTER=$(cluster_from_cache_file $CACHE_FILE)
+      case $CLUSTER in
         v3:*)
           VERSION=v3
-          CLUSTERID=${CLUSTERID:3}  # Trim off v3:
-          export AWS_PROFILE=$(get-cluster-var $CLUSTERID oo_account)
-          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID oo_sublocation)
+          CLUSTER=${CLUSTER:3}  # Trim off v3:
+          export AWS_PROFILE=$(get-cluster-var $CLUSTER oo_account)
+          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTER oo_sublocation)
           cluster-context
           ;;
         aro:*)
           VERSION=aro
-          CLUSTERID=${CLUSTERID:4}  # Trim off aro:
+          CLUSTER=${CLUSTER:4}  # Trim off aro:
           export KUBECONFIG="${CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}"
           ARO_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
           mkdir -p "ARO_CONFIG_DIR/clusters"
-          export ARO_LOCATION=$(get-cluster-var $CLUSTERID location)
-          export ARO_RESOURCE_GROUP=$(get-cluster-var $CLUSTERID resourceGroup)
+          export ARO_LOCATION=$(get-cluster-var $CLUSTER location)
+          export ARO_RESOURCE_GROUP=$(get-cluster-var $CLUSTER resourceGroup)
           cluster-context
           if [[ ! -e $KUBECONFIG ]]
           then
@@ -59,27 +59,27 @@ else
           then
             echo "You are logged in as \"$(oc whoami)\""
           else
-            CREDS=$(az aro list-credentials --name $CLUSTERID --resource-group $ARO_RESOURCE_GROUP)
-            oc login $(get-cluster-var $CLUSTERID apiserverProfile.url) \
+            CREDS=$(az aro list-credentials --name $CLUSTER --resource-group $ARO_RESOURCE_GROUP)
+            oc login $(get-cluster-var $CLUSTER apiserverProfile.url) \
               --username $(jq --raw-output .kubeadminUsername <<<"$CREDS") \
               --password $(jq --raw-output .kubeadminPassword <<<"$CREDS")
           fi
           ;;
         ocm:*)
           VERSION=ocm
-          CLUSTERID=${CLUSTERID:4}  # Trim off ocm:
+          CLUSTER=${CLUSTER:4}  # Trim off ocm:
           export KUBECONFIG="${CACHE_FILE/$XDG_CACHE_HOME/$XDG_CONFIG_HOME}"
           OCM_CONFIG_DIR=$(dirname $(dirname $KUBECONFIG))
           mkdir -p "$OCM_CONFIG_DIR/clusters"
           export OCM_CONFIG="$OCM_CONFIG_DIR/config"
-          export OCM_CLUSTERID=$(get-cluster-var $CLUSTERID id)
-          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTERID region.id)
+          export OCM_CLUSTER=$(get-cluster-var $CLUSTER id)
+          export AWS_DEFAULT_REGION=$(get-cluster-var $CLUSTER region.id)
           if [[ ! -e $KUBECONFIG ]]
           then
             case $(basename $OCM_CONFIG_DIR) in
               integration|staging)
                 # Requires ocm role SREPDeveloper
-                ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID/credentials | jq -r .kubeconfig > $KUBECONFIG
+                ocm get /api/clusters_mgmt/v1/clusters/$OCM_CLUSTER/credentials | jq -r .kubeconfig > $KUBECONFIG
                 ;;
               production)
                 touch $KUBECONFIG
@@ -99,11 +99,11 @@ fi
 TMUX_CLUSTER_FILE=$(tmux-cluster-file)
 if [[ -n "$TMUX_CLUSTER_FILE" ]]
 then
-  if [[ -n "$VERSION" ]] && [[ -n "$CLUSTERID" ]]
+  if [[ -n "$VERSION" ]] && [[ -n "$CLUSTER" ]]
   then
     if [[ -d $(dirname $TMUX_CLUSTER_FILE) ]]
     then
-        echo "export CLUSTERID=$CLUSTERID" > $TMUX_CLUSTER_FILE
+        echo "export CLUSTER=$CLUSTER" > $TMUX_CLUSTER_FILE
         echo "export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION" >> $TMUX_CLUSTER_FILE
         if [[ -n "$AWS_PROFILE" ]]
         then
@@ -121,16 +121,16 @@ then
         then
             echo "export ARO_RESOURCE_GROUP=$ARO_RESOURCE_GROUP" >> $TMUX_CLUSTER_FILE
         fi
-        if [[ -n "$OCM_CLUSTERID" ]]
+        if [[ -n "$OCM_CLUSTER" ]]
         then
-            echo "export OCM_CLUSTERID=$OCM_CLUSTERID" >> $TMUX_CLUSTER_FILE
+            echo "export OCM_CLUSTER=$OCM_CLUSTER" >> $TMUX_CLUSTER_FILE
         fi
         if [[ -n "$OCM_CONFIG" ]]
         then
             echo "export OCM_CONFIG=$OCM_CONFIG" >> $TMUX_CLUSTER_FILE
         fi
     fi
-    tmux rename-window "$VERSION:$CLUSTERID"
+    tmux rename-window "$VERSION:$CLUSTER"
   else
     rm --force $TMUX_CLUSTER_FILE
     tmux rename-window ""

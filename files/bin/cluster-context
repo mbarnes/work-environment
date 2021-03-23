@@ -3,35 +3,35 @@
 # Pretty-prints environment variables and other helpful messages
 # describing the current OCM and Kubernetes context.
 #
-# This is shown when calling "source cluster CLUSTERID", but is
+# This is shown when calling "source cluster CLUSTER", but is
 # split into a separate command for convenience (e.g. the prior
 # output has scrolled out of view).
 #
 
-if [[ -v CLUSTERID ]]
+if [[ -v CLUSTER ]]
 then
   if [[ -v AWS_PROFILE ]]
   then
     # OpenShift v3 context
-    echo "         CLUSTERID : $CLUSTERID"
+    echo "           CLUSTER : $CLUSTER"
     echo "       AWS_PROFILE : $AWS_PROFILE"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
   elif [[ -v ARO_RESOURCE_GROUP ]]
   then
     # OpenShift v4 context
-    echo "          CLUSTERID : $CLUSTERID"
+    echo "            CLUSTER : $CLUSTER"
     echo "       ARO_LOCATION : $ARO_LOCATION"
     echo " ARO_RESOURCE_GROUP : $ARO_RESOURCE_GROUP"
-  elif [[ -v OCM_CLUSTERID ]]
+  elif [[ -v OCM_CLUSTER ]]
   then
     # OpenShift v4 context
-    echo "         CLUSTERID : $CLUSTERID"
-    echo "     OCM_CLUSTERID : $OCM_CLUSTERID"
+    echo "           CLUSTER : $CLUSTER"
+    echo "       OCM_CLUSTER : $OCM_CLUSTER"
     echo "        OCM_CONFIG : $OCM_CONFIG"
     echo "AWS_DEFAULT_REGION : $AWS_DEFAULT_REGION"
 
     echo
-    if [[ "$(get-cluster-var $CLUSTERID api.listening)" == "internal" ]]
+    if [[ "$(get-cluster-var $CLUSTER api.listening)" == "internal" ]]
     then
       case $(hostname) in
         bastion-*.ops.openshift.com)

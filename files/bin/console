@@ -7,15 +7,15 @@
 set -euo pipefail
 
 set +u
-CLUSTERID=${1:-$CLUSTERID}
+CLUSTER=${1:-$CLUSTER}
 set -u
-if [[ -z $CLUSTERID ]]
+if [[ -z $CLUSTER ]]
 then
-  echo "Usage: $0 [<clusterid>]"
+  echo "Usage: $0 [<cluster>]"
   exit 1
 fi
 
-CONSOLE=$(get-cluster-var $CLUSTERID console.url)
+CONSOLE=$(get-cluster-var $CLUSTER console.url)
 BROWSER=$(xdg-mime query default x-scheme-handler/https)
 
 echo $CONSOLE

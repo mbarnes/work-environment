@@ -10,12 +10,12 @@
 #
 # See: https://github.com/openshift/ops-sop/blob/master/v4/howto/cluster-admin.md
 #
-# Usage: cluster-admin (check|enable|disable) [OCM_CLUSTERID]
+# Usage: cluster-admin (check|enable|disable) [OCM_CLUSTER]
 #
 
 set -euo pipefail
 
-USAGE="Usage: $0 (check|enable|disable) [OCM_CLUSTERID]"
+USAGE="Usage: $0 (check|enable|disable) [OCM_CLUSTER]"
 
 set +u
 ACTION=$1
@@ -30,15 +30,15 @@ case $ACTION in
 esac
 
 set +u
-OCM_CLUSTERID=${2:-$OCM_CLUSTERID}
+OCM_CLUSTER=${2:-$OCM_CLUSTER}
 set -u
-if [[ -z "OCM_CLUSTERID" ]]
+if [[ -z "OCM_CLUSTER" ]]
 then
   echo "$USAGE" > /dev/stderr
   exit 1
 fi
 
-OCM_CLUSTER_API_PATH="/api/clusters_mgmt/v1/clusters/$OCM_CLUSTERID"
+OCM_CLUSTER_API_PATH="/api/clusters_mgmt/v1/clusters/$OCM_CLUSTER"
 OCM_SUBSCRIPTION=$(ocm get $OCM_CLUSTER_API_PATH | jq --raw-output .subscription.id)
 OCM_SUBSCRIPTION_LABELS_API_PATH="/api/accounts_mgmt/v1/subscriptions/$OCM_SUBSCRIPTION/labels"
 

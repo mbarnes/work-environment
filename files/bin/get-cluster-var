@@ -6,9 +6,9 @@
 # For v3 clusters, this command is generally not called directly, but
 # through one of the "oo" commands (oo_account, oo_environment, etc).
 #
-#   get-cluster-var CLUSTERID [VARNAME]
+#   get-cluster-var CLUSTER [VARNAME]
 #
-# The program can also be used as a silent validity test for a CLUSTERID
+# The program can also be used as a silent validity test for a CLUSTER
 # by omitting the VARNAME argument, although this only really indicates
 # whether a locally cached file exists for it.
 #
@@ -25,7 +25,7 @@ VARNAME=$2
 set -u
 if [[ -z $CLUSTER ]]
 then
-    echo "Usage: $0 <clusterid> [<varname>]" > /dev/stderr
+    echo "Usage: $0 <cluster> [<varname>]" > /dev/stderr
     exit 1
 fi
 

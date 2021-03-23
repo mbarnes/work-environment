@@ -42,7 +42,7 @@ import requests
 import requests_html
 import requests_kerberos
 
-DEFAULT_CLUSTER = os.environ.get('OCM_CLUSTERID')
+DEFAULT_CLUSTER = os.environ.get('OCM_CLUSTER')
 DEFAULT_EMAIL = getpass.getuser() + '@redhat.com'
 DEFAULT_OC_COMMAND = shutil.which('oc')
 DEFAULT_OCM_COMMAND = shutil.which('ocm')
@@ -90,8 +90,8 @@ def print_error(*args):
 def json_subprocess_run(args):
     return json.loads(subprocess.run(args, capture_output=True, check=True).stdout)
 
-def get_cluster_urls(ocm_command, clusterid):
-    subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + clusterid]
+def get_cluster_urls(ocm_command, cluster):
+    subprocess_args = [ocm_command, 'get', CLUSTERS_API_PATH + cluster]
     json_result = json_subprocess_run(subprocess_args)
     try:
         api_url = json_result['api']['url']
@@ -213,7 +213,7 @@ def help_and_default(help_string, default):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--cluster', '-c', metavar='CLUSTERID',
+        '--cluster', '-c', metavar='CLUSTER',
         **help_and_default('"ocm" internal cluster ID', DEFAULT_CLUSTER))
     parser.add_argument(
         '--email', '-e', metavar='ADDRESS',
